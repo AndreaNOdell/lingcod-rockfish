@@ -106,8 +106,8 @@ nmat = array(NA, dim = c(nage, tf, 2),
                            year=NULL, ling.sex=c('female', 'male')))
 nmat[,1,] = n0
 
-for(ling.sex in c("female", "male")){
-  for(t in 2:tf) {
+for(t in 2:tf) {
+  for(ling.sex in c("female", "male")){
 # At new time step, first calculate recruitment via spawning biomass and input into first row
     SBLs = numeric(nsex) # create empty SBL vector
     names(SBLs) = c("female", "male") # name the columns
@@ -125,5 +125,7 @@ for(ling.sex in c("female", "male")){
 
 # Something is wrong with the spawning biomass input
 
+ntot = colSums(nmat)
+matplot(1:tf, ntot, type = "l")
 
 
