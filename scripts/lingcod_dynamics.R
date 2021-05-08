@@ -95,7 +95,6 @@ alpha = 4*h / (phi*(1-h)) # Carrying Capacity
 beta = (5*h-1) / (phi*r0*(1-h)) # Steepness
 
 
-
 #########
 # model #
 #########
@@ -127,5 +126,7 @@ for(t in 2:tf) {
 
 ntot = colSums(nmat)
 matplot(1:tf, ntot, type = "l")
+
+matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")
 
 
