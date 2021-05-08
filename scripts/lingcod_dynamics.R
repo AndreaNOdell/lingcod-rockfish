@@ -118,15 +118,12 @@ for(t in 2:tf) {
 
 # Then calculate number of individuals in subsequent ages
   nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex])
-  nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) / (1-exp(-M[ling.sex]))
+  nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex]))
   }
 }
 
-# Something is wrong with the spawning biomass input
-
 ntot = colSums(nmat)
 matplot(1:tf, ntot, type = "l")
-
-matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")
+# matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")  # plot ages separately
 
 
