@@ -94,13 +94,19 @@ for(ling.sex in c("female", "male")) { # Calculate survival across ages
 sb_r = phi_struct * wl * ul # Spawners per recruit
 phi = 1/rowSums(sb_r) # Recruits per spawner
 
-# Beverton Holt parameters
+# Recruitment parameters
 r0 = 4848 # Recruitment at unfished biomass
 h = 0.8
 alpha = 4*h / (phi*(1-h)) # Carrying Capacity
 beta = (5*h-1) / (phi*r0*(1-h)) # Steepness
     # With stochasticity
 r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recruitment
+
+###########
+# Fishing #
+###########
+
+f = rep(0.1, tf)
 
 #########
 # model #
@@ -127,7 +133,7 @@ for(t in 2:tf) {
     
     # Then calculate number of individuals in subsequent ages
     nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex])
-    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex]))
+    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex] - f[t]))
   }
 }
 
