@@ -151,4 +151,6 @@ ggplot(ntot_long, aes(x = time, y = abundance, col = sex)) +
 # put all parameters into a list and pass that through the function
 # list2env() 
 
+#I don't know what's happening. trying something...
+
 
