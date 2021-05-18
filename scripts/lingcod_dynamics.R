@@ -26,6 +26,9 @@ BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
 
 # Parameters -------------------------------------------------------------------
 
+##############
+# Parameters #
+##############
 age = 1:20 # vector of ages
 nage = length(age) # number of ages
 tf = 100 # final time
@@ -55,6 +58,7 @@ length_age_maturity[3,61:65] = seq(0.87, .95, length.out = 5)
 length_age_maturity[3,66:70] = seq(0.96, 1, length.out = 5)
 length_age_maturity[3,71:101] = 1
 
+
 # My own estimated vector of maturity for each age class
 ul = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
            c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)))
@@ -62,6 +66,13 @@ rownames(ul) = c("female", "male")
 
 
 # Calculate weight - age -------------------------------------------------------
+
+
+# My own estimate of maturity for each age class
+ul = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
+          c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)))
+rownames(ul) = c("female", "male")
+  
 
 
 # Calculate length at age into matrix
@@ -85,6 +96,18 @@ phi_struct[,1] = phi_n0 # Fill in initial recruit
 rownames(phi_struct) = c("female", "male") # name rows
 for(ling.sex in c("female", "male")) { # Calculate survival across ages
   for(j in 1:(nage-1)) { 
+
+#################
+# Calculate phi #
+#################
+
+# First calculate survival into each age class (L(a) * exp(-M)) for each sex
+phi_n0 = 1
+phi_struct = matrix(NA, nrow = 2, ncol = nage)
+phi_struct[,1] = phi_n0
+rownames(phi_struct) = c("female", "male")
+for(ling.sex in c("female", "male")) { # Calculate survival across ages
+  for(j in 1:(nage-1)) {
     phi_struct[ling.sex,j+1] = phi_struct[ling.sex,j] * exp(-M[ling.sex])
   }
 }
@@ -94,6 +117,7 @@ sb_r = phi_struct * wl * ul # Spawners per recruit
 phi = 1/rowSums(sb_r) # Recruits per spawner
 
 # Recruitment parameters
+# Beverton Holt parameters
 r0 = 4848 # Recruitment at unfished biomass
 h = 0.8
 alpha = 4*h / (phi*(1-h)) # Carrying Capacity
@@ -104,8 +128,12 @@ r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recrui
 
 f = rep(0.1, tf)
 
-
 # model ------------------------------------------------------------------------
+
+
+#########
+# model #
+#########
 
 # Create empty matrix to fill in individuals per age (row) through time (column)
 nmat = array(NA, dim = c(nage, tf, 2), 
@@ -117,11 +145,14 @@ for(t in 2:tf) {
   eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
   for(ling.sex in c("female", "male")){
     # At new time step, first calculate recruitment via spawning biomass and input into first row
+  for(ling.sex in c("female", "male")){
+# At new time step, first calculate recruitment via spawning biomass and input into first row
     SBLs = numeric(nsex) # create empty SBL vector
     names(SBLs) = c("female", "male") # name the columns
     for(lingcod.sex in c("female", "male")){ # Calculate Spawning Biomass for each sex
       SBLs[lingcod.sex] = sum((0.5*nmat[,t-1,lingcod.sex]) * wl[lingcod.sex,] * ul[lingcod.sex,]) 
     }
+
     SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
     nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
     
@@ -152,5 +183,19 @@ ggplot(ntot_long, aes(x = time, y = abundance, col = sex)) +
 # list2env() 
 
 #I don't know what's happening. trying something...
+
+  SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
+  nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex]) # input Bev Holt recruitment into first row of time t
+
+# Then calculate number of individuals in subsequent ages
+  nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex])
+  nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex]))
+  }
+}
+
+ntot = colSums(nmat)
+matplot(1:tf, ntot, type = "l")
+# matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")  # plot ages separately
+
 
 
