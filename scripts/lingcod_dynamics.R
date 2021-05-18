@@ -1,12 +1,12 @@
-##########
-# Set up #
-##########
 
+# Set up ----------------------------------------------------------------------
+
+library(tidyverse)
 library(PNWColors)
+theme_set(theme_classic()) # set all ggplot graphs to classic theme
 
-#############
-# Functions #
-#############
+
+# Functions ----------------------------------------------------------------------
 
 # Function to calculate length using age
 calc_lengthxage = function(Linf, k, age) {
@@ -23,9 +23,9 @@ calc_weightxlength = function(L, a, b) {
 
 BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
 
-##############
-# Parameters #
-##############
+
+# Parameters -------------------------------------------------------------------
+
 age = 1:20 # vector of ages
 nage = length(age) # number of ages
 tf = 100 # final time
@@ -60,9 +60,9 @@ ul = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
            c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)))
 rownames(ul) = c("female", "male")
 
-##########################
-# Calculate weight - age #
-##########################
+
+# Calculate weight - age -------------------------------------------------------
+
 
 # Calculate length at age into matrix
 length_l = matrix(NA, nrow = length(Linf), ncol = nage)
@@ -75,17 +75,16 @@ for(i in c("female","male")) {
 wl = calc_weightxlength(length_l, aL, bL) # weight in kg
 
 
-#################
-# Calculate phi #
-#################
+
+# Calculate phi ----------------------------------------------------------------
 
 # First calculate survival into each age class (L(a) * exp(-M)) for each sex
-phi_n0 = 1
-phi_struct = matrix(NA, nrow = 2, ncol = nage)
-phi_struct[,1] = phi_n0
-rownames(phi_struct) = c("female", "male")
+phi_n0 = 1 # Initial recruit
+phi_struct = matrix(NA, nrow = 2, ncol = nage) # Empty matrix to fill
+phi_struct[,1] = phi_n0 # Fill in initial recruit
+rownames(phi_struct) = c("female", "male") # name rows
 for(ling.sex in c("female", "male")) { # Calculate survival across ages
-  for(j in 1:(nage-1)) {
+  for(j in 1:(nage-1)) { 
     phi_struct[ling.sex,j+1] = phi_struct[ling.sex,j] * exp(-M[ling.sex])
   }
 }
@@ -99,18 +98,14 @@ r0 = 4848 # Recruitment at unfished biomass
 h = 0.8
 alpha = 4*h / (phi*(1-h)) # Carrying Capacity
 beta = (5*h-1) / (phi*r0*(1-h)) # Steepness
-    # With stochasticity
 r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recruitment
 
-###########
-# Fishing #
-###########
+# Fishing ----------------------------------------------------------------------
 
 f = rep(0.1, tf)
 
-#########
-# model #
-#########
+
+# model ------------------------------------------------------------------------
 
 # Create empty matrix to fill in individuals per age (row) through time (column)
 nmat = array(NA, dim = c(nage, tf, 2), 
@@ -119,33 +114,41 @@ nmat = array(NA, dim = c(nage, tf, 2),
 nmat[,1,] = n0
 
 for(t in 2:tf) {
+  eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
   for(ling.sex in c("female", "male")){
     # At new time step, first calculate recruitment via spawning biomass and input into first row
     SBLs = numeric(nsex) # create empty SBL vector
     names(SBLs) = c("female", "male") # name the columns
-    eps_r = rlnorm(1, meanlog = 1, sdlog = r_sd) # lognormal distribution for varying r
-    r_vary = exp(eps_r-0.5*r_sd^2) # add bias correction
     for(lingcod.sex in c("female", "male")){ # Calculate Spawning Biomass for each sex
       SBLs[lingcod.sex] = sum((0.5*nmat[,t-1,lingcod.sex]) * wl[lingcod.sex,] * ul[lingcod.sex,]) 
     }
     SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
-    nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*r_vary # input Bev Holt recruitment into first row of time t
+    nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
     
     # Then calculate number of individuals in subsequent ages
-    nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex])
+    nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex] - f[t])
     nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex] - f[t]))
   }
 }
 
-ntot = colSums(nmat)
-matplot(1:tf, ntot, type = "l", xlab = "Time", ylab = "Abundance", lty = 1, 
-        col = pnw_palette(name="Sunset2",n=2,type="discrete"))
-legend('topleft', legend = c("female", "male"), lty = 1, 
-       col = pnw_palette(name="Sunset2",n=2,type="discrete"))
 # matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")  # plot ages separately
 
+# ggplot -----------------------------------------------------------------------
+
+# first let's set up our data into a long format
+ntot = colSums(nmat)
+ntot_wide = as.data.frame(ntot) %>% 
+  mutate(time = 1:tf) # change from matrix to dataframe and add a column for time
+ntot_long <- gather(ntot_wide, sex, abundance, female:male, factor_key=TRUE) # change to long format
+
+# now let's graph!
+ggplot(ntot_long, aes(x = time, y = abundance, col = sex)) +
+  geom_line() +
+  scale_color_manual(values=pnw_palette("Sunset2",2,"discrete"))
 
 
-
+# make a function that runs the model with different scenarios (e.g. high and low recruitment variability)
+# put all parameters into a list and pass that through the function
+# list2env() 
 
 
