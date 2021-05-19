@@ -127,7 +127,7 @@ for(t in 2:tf) {
   
     # Then calculate number of individuals in subsequent ages
     nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex] - (f[t]))
-    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex] - (f[t])))
+    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex] - (f[t]))) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex] - (f[t])))
   }
 }
 

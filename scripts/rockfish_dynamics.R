@@ -25,10 +25,10 @@ BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
 
 # Parameters -------------------------------------------------------------------
 
-age = 1:20 # vector of ages
+age = 1:40 # vector of ages
 nage = length(age) # number of ages
 tf = 100 # final time
-n0 = rep(100, nage) # Initial starting size
+n0 = rep(50, nage) # Initial starting size
 M = 0.044 # Natural Mortality estimate
 
 # Weight calculation
@@ -42,13 +42,14 @@ L = 0:65
 r_length_age_maturity = matrix(NA, nrow = 3, ncol = length(L))
 r_length_age_maturity[1,] = L
 r_length_age_maturity[2,] = floor((log(1-(L/Linf)))/(-k)) # Calculate age via length
-r_length_age_maturity[2,63:length(L)] = 71 # fill in last ages
+r_length_age_maturity[2,64:length(L)] = 86 # fill in last ages
 r_length_age_maturity[3,1:34] = 0 # immature up until age 33
 r_length_age_maturity[3,35:50] = seq(0, 1, length.out = 16) 
 r_length_age_maturity[3,50:66] = 1
 
 # My own estimated vector of maturity for each age class
-ul = c(rep(0, 15), 0.1, 0.2, 0.27, 0.33, 1)
+ul = c(rep(0, 15), 0.1, 0.2, 0.27, 0.33, 0.4, 0.47, 0.53, 0.6,  0.67, 0.73, 0.8, 0.87, 
+       0.9, rep(1, 12))
 
 # Calculate length and weight by age -------------------------------------------------------
 
@@ -70,6 +71,49 @@ for(j in 1:(nage-1)) {
     phi_struct[j+1] = phi_struct[j] * exp(-M)
 }
 
+# Then multiply each age class by weights and maturity and inverse
+sb_r = phi_struct * wl * ul # Spawners per recruit
+phi = 1/sum(sb_r) # Recruits per spawner
+
+# Recruitment parameters
+r0 = 220 # Recruitment at unfished biomass
+h = 0.718
+alpha = 4*h / (phi*(1-h)) # Carrying Capacity
+beta = (5*h-1) / (phi*r0*(1-h)) # Steepness
+r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recruitment
+
+# Fishing ----------------------------------------------------------------------
+
+f = rep(0.1, tf) # fishing mortality
+vl = c(rep(0, 4), rep(1, 16)) # susceptibility to fishery (0 or 1)
+b = 0.3
+
+# model ------------------------------------------------------------------------
+
+# Create empty matrix to fill in individuals per age (row) through time (column)
+nmat = matrix(NA, nrow = nage, ncol = tf)
+nmat[,1] = n0
+
+for(t in 2:tf) {
+  eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
+  SBL = sum((nmat[,t-1]) * wl * ul) 
+  nmat[1,t] = (BevHolt(SBL))*eps_r # input Bev Holt recruitment into first row of time t
+    
+  # Then calculate number of individuals in subsequent ages
+  nmat[2:nage, t] = nmat[1:(nage-1), t-1] * exp(-M - (b*f[t]))
+  nmat[nage, t] = (nmat[nage-1, t-1] * exp(-M - (b*f[t]))) + (nmat[nage, t-1] * exp(-M - (b*f[t])))
+}
+
+# ggplot -----------------------------------------------------------------------
+
+# first let's set up our data into a long format
+ntot = colSums(nmat)
+ntot = as.data.frame(ntot) %>% 
+  mutate(time = 1:tf) %>% 
+  rename(abundance = ntot)
+# now let's graph!
+ggplot(ntot, aes(x = time, y = abundance)) +
+  geom_line()
 
 
 
