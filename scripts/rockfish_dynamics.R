@@ -25,7 +25,7 @@ BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
 
 # Parameters -------------------------------------------------------------------
 
-age = 1:40 # vector of ages
+age = 0:65 # vector of ages
 nage = length(age) # number of ages
 tf = 100 # final time
 n0 = rep(50, nage) # Initial starting size
@@ -80,13 +80,13 @@ r0 = 220 # Recruitment at unfished biomass
 h = 0.718
 alpha = 4*h / (phi*(1-h)) # Carrying Capacity
 beta = (5*h-1) / (phi*r0*(1-h)) # Steepness
-r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recruitment
+r_sd = 0.6 # standard deviation for lognormal distribution for stochastic recruitment
 
 # Fishing ----------------------------------------------------------------------
 
 f = rep(0.1, tf) # fishing mortality
 vl = c(rep(0, 4), rep(1, 16)) # susceptibility to fishery (0 or 1)
-b = 0.3
+b = 0.1
 
 # model ------------------------------------------------------------------------
 
