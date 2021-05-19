@@ -117,7 +117,8 @@ r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recrui
 
 # Fishing ----------------------------------------------------------------------
 
-f = rep(0.1, tf)
+f = rep(0.1, tf) # fishing mortality
+vl = c(rep(0, 4), rep(1, 16)) # susceptibility to fishery (0 or 1)
 
 # model ------------------------------------------------------------------------
 
@@ -140,8 +141,8 @@ for(t in 2:tf) {
     nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
   
     # Then calculate number of individuals in subsequent ages
-    nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex] - f[t])
-    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex] - f[t]))
+    nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex] - (f[t]))
+    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-M[ling.sex])) + (nmat[nage, t-1, ling.sex] * exp(-M[ling.sex] - (f[t])))
   }
 }
 
