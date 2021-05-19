@@ -89,21 +89,6 @@ for(ling.sex in c("female", "male")) { # Calculate survival across ages
   }
 }
 
-#################
-# Calculate phi #
-#################
-
-# First calculate survival into each age class (L(a) * exp(-M)) for each sex
-phi_n0 = 1
-phi_struct = matrix(NA, nrow = 2, ncol = nage)
-phi_struct[,1] = phi_n0
-rownames(phi_struct) = c("female", "male")
-for(ling.sex in c("female", "male")) { # Calculate survival across ages
-  for(j in 1:(nage-1)) {
-    phi_struct[ling.sex,j+1] = phi_struct[ling.sex,j] * exp(-M[ling.sex])
-  }
-}
-
 # Then multiply each age class by weights and maturity and inverse
 sb_r = phi_struct * wl * ul # Spawners per recruit
 phi = 1/rowSums(sb_r) # Recruits per spawner
@@ -146,6 +131,7 @@ for(t in 2:tf) {
   }
 }
 
+# How do I incorporate fishing vulnerability? should f be a matrix?
 # matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")  # plot ages separately
 
 # ggplot -----------------------------------------------------------------------
