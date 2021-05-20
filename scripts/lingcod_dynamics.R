@@ -21,7 +21,7 @@ calc_weightxlength = function(L, a, b) {
   print(w)
 }
 
-BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
+BevHolt = function(alpha, beta, SBL) (alpha*SBL) / (1 + beta*SBL)
 
 
 # Parameters -------------------------------------------------------------------
@@ -123,7 +123,7 @@ for(t in 2:tf) {
       SBLs[lingcod.sex] = sum((0.5*nmat[,t-1,lingcod.sex]) * wl[lingcod.sex,] * ul[lingcod.sex,]) 
     }
     SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
-    nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
+    nmat[1,t,ling.sex] = 0.5*(BevHolt(alpha, beta, SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
   
     # Then calculate number of individuals in subsequent ages
     nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-M[ling.sex] - (f[t]))

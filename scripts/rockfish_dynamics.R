@@ -21,7 +21,7 @@ calc_weightxlength = function(L, a, b) {
   print(w)
 }
 
-BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
+BevHolt = function(alpha, beta, SBL) (alpha*SBL) / (1 + beta*SBL)
 
 # Parameters -------------------------------------------------------------------
 
@@ -49,7 +49,7 @@ r_length_age_maturity[3,50:66] = 1
 
 # My own estimated vector of maturity for each age class
 ul = c(rep(0, 15), 0.1, 0.2, 0.27, 0.33, 0.4, 0.47, 0.53, 0.6,  0.67, 0.73, 0.8, 0.87, 
-       0.9, rep(1, 12))
+       0.9, rep(1, 38))
 
 # Calculate length and weight by age -------------------------------------------------------
 
@@ -86,7 +86,7 @@ r_sd = 0.6 # standard deviation for lognormal distribution for stochastic recrui
 
 f = rep(0.1, tf) # fishing mortality
 vl = c(rep(0, 4), rep(1, 16)) # susceptibility to fishery (0 or 1)
-b = 0.1
+b = 0.2
 
 # model ------------------------------------------------------------------------
 
@@ -97,7 +97,7 @@ nmat[,1] = n0
 for(t in 2:tf) {
   eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
   SBL = sum((nmat[,t-1]) * wl * ul) 
-  nmat[1,t] = (BevHolt(SBL))*eps_r # input Bev Holt recruitment into first row of time t
+  nmat[1,t] = (BevHolt(alpha, beta, SBL))*eps_r # input Bev Holt recruitment into first row of time t
     
   # Then calculate number of individuals in subsequent ages
   nmat[2:nage, t] = nmat[1:(nage-1), t-1] * exp(-M - (b*f[t]))
