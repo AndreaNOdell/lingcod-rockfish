@@ -82,8 +82,9 @@ lingcod = list(length.at.age = length.at.age, # vector of length at age
                 h = 0.8,# Steepness
                 age = age, #age classes
                 nage = length(age), # of age classes
-                r0 = 4848) # recruitment at unfished biomass
-names(lingcod$nat.mort) = c("female", "male") 
+                r0 = 4848,  # recruitment at unfished biomass
+                susceptibility = rbind(c(rep(0, 4), rep(1, 16)),c(rep(0, 4), rep(1, 16))))
+rownames(lingcod$susceptibility) = names(lingcod$nat.mort) = c("female", "male") 
 
 
 # Rockfish Parameters ----------------------------------------------------------
@@ -112,7 +113,8 @@ rockfish = list(length.at.age = length.at.age, # vector of length at age
                 h = 0.718, # Steepness
                 age = age, # age classes
                 nage = length(age), # of age classes
-                r0 = 220) # recruitment at unfished biomass
+                r0 = 220,
+                selectivity = c(rep(0, 4), rep(1, 62))) # recruitment at unfished biomass
 
 rm(mat.at.age, length.at.age, weight.at.age, age, a, b, k, Linf)
 
@@ -120,7 +122,7 @@ rm(mat.at.age, length.at.age, weight.at.age, age, a, b, k, Linf)
 # model ------------------------------------------------------------------------
 
 
-get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, nat.mort, fish.mort = 0.1, bycatch = 0, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 50) {
+get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, bycatch = 0, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 50) {
   # Calculate phi for bev holt curve
   phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))
   phi.r = with(rockfish, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE))
@@ -141,7 +143,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, nat.mort,
   for(t in 2:tf) { # loop through time
     eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
     for(ling.sex in c("female", "male")){
-      M = with(lingcod, nat.mort[ling.sex] + fish.mort)
+      M = with(lingcod, nat.mort[ling.sex] + fish.mort*susceptibility[ling.sex,])
       # At new time step, first calculate recruitment via spawning biomass and input into first row
       SBLs = numeric(2) # create empty SBL vector
       names(SBLs) = c("female", "male") # name the columns
@@ -151,18 +153,18 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, nat.mort,
       SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
       nmat.l[1,t,ling.sex] = with(lingcod, 0.5*(BevHolt(phi.l, h, r0, SBL)[ling.sex])*eps_r) # input Bev Holt recruitment into first row of time t
       # Then calculate number of individuals in subsequent ages
-      nmat.l[2:lingcod$nage, t, ling.sex] = nmat.l[1:(lingcod$nage-1), t-1, ling.sex] * exp(-M)
-      nmat.l[lingcod$nage, t, ling.sex] = (nmat.l[lingcod$nage-1, t-1, ling.sex] * exp(-M)) + (nmat.l[lingcod$nage, t-1, ling.sex] * exp(-M))
+      nmat.l[2:lingcod$nage, t, ling.sex] = nmat.l[1:(lingcod$nage-1), t-1, ling.sex] * exp(-M[1:(length(M)-1)])
+      nmat.l[lingcod$nage, t, ling.sex] = (nmat.l[lingcod$nage-1, t-1, ling.sex] * exp(-M[length(M)])) + (nmat.l[lingcod$nage, t-1, ling.sex] * exp(-M[length(M)]))
     }
 #rockfish
-    M = with(rockfish, nat.mort + bycatch*fish.mort)
+    M = with(rockfish, nat.mort + bycatch*fish.mort*selectivity)
     # eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
     SBL = with(rockfish, sum((nmat.r[,t-1]) * weight.at.age * mat.at.age))
     nmat.r[1,t] = with(rockfish, (BevHolt(phi.r, h, r0, SBL))*eps_r) # input Bev Holt recruitment into first row of time t
       
     # Then calculate number of individuals in subsequent ages
-    nmat.r[2:rockfish$nage, t] = nmat.r[1:(rockfish$nage-1), t-1] * exp(-M)
-    nmat.r[rockfish$nage, t] = (nmat.r[rockfish$nage-1, t-1] * exp(-M) + (nmat.r[rockfish$nage, t-1] * exp(-M)))
+    nmat.r[2:rockfish$nage, t] = nmat.r[1:(rockfish$nage-1), t-1] * exp(-M[1:(length(M)-1)])
+    nmat.r[rockfish$nage, t] = (nmat.r[rockfish$nage-1, t-1] * exp(-M[length(M)]) + (nmat.r[rockfish$nage, t-1] * exp(-M[length(M)])))
     }
   
   # send output to the global environment
@@ -172,8 +174,8 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, nat.mort,
 }
 
 
-get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, nat.mort, fish.mort = 0.1, 
-         bycatch = 0.1, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10)
+get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, 
+         bycatch = 0.1, r_sd = 0, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10)
 
 #lingcod 
   # first let's set up our data into a long format
