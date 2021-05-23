@@ -21,7 +21,7 @@ calc_weightxlength = function(L, a, b) {
   print(w)
 }
 
-BevHolt = function(alpha, beta, SBL) (alpha*SBL) / (1 + beta*SBL)
+BevHolt = function(SBL) (alpha*SBL) / (1 + beta*SBL)
 
 
 # Parameters -------------------------------------------------------------------
@@ -103,7 +103,8 @@ r_sd = 0.2 # standard deviation for lognormal distribution for stochastic recrui
 # Fishing ----------------------------------------------------------------------
 
 f = 0.1 # fishing mortality
-vl = c(rep(0, 4), rep(1, 16)) # susceptibility to fishery (0 or 1)
+vl = rbind(c(rep(0, 4), rep(1, 16)),c(rep(0, 4), rep(1, 16)))# susceptibility to fishery (0 or 1)
+rownames(vl) = c("female", "male")
 
 # model ------------------------------------------------------------------------
 
@@ -117,7 +118,7 @@ nmat[,1,] = n0
 for(t in 2:tf) {
   eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r
   for(ling.sex in c("female", "male")){
-    mort = M[ling.sex] + f  # need to add selectivity
+    mort = M[ling.sex] + f*vl[ling.sex,]  # need to add selectivity
     # At new time step, first calculate recruitment via spawning biomass and input into first row
     SBLs = numeric(nsex) # create empty SBL vector
     names(SBLs) = c("female", "male") # name the columns
@@ -125,11 +126,11 @@ for(t in 2:tf) {
       SBLs[lingcod.sex] = sum((0.5*nmat[,t-1,lingcod.sex]) * wl[lingcod.sex,] * ul[lingcod.sex,]) 
     }
     SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
-    nmat[1,t,ling.sex] = 0.5*(BevHolt(alpha, beta, SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
+    nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
   
     # Then calculate number of individuals in subsequent ages
-    nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-mort)
-    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-mort)) + (nmat[nage, t-1, ling.sex] * exp(-mort))
+    nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-mort[1:19])
+    nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-mort[20])) + (nmat[nage, t-1, ling.sex] * exp(-mort[20]))
   }
 }
 
