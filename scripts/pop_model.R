@@ -175,7 +175,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
 
 
 get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, 
-         bycatch = 0.1, r_sd = 0, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10)
+         bycatch = 0.1, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10)
 
 #lingcod 
   # first let's set up our data into a long format
