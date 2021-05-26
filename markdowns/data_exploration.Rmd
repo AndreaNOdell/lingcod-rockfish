@@ -1,0 +1,117 @@
+---
+title: "Data Exploration"
+author: "Andrea Odell"
+date: "11/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo = TRUE}
+library(tidyverse)
+```
+
+## Exploring the Data
+
+```{r Load in data, }
+lingcod <- read.csv("data/Lingcod with Gut Contents_All_BB.csv")
+colnames(lingcod)
+```
+
+## Duplicate Columns for sex
+
+There were two columns for sex, and it looks like they don't align perfectly. Why not? What's the difference between the two? Which one should I use?
+```{r Duplicate Sex Columns }
+  lingcod_sexColumns <- lingcod %>% 
+  select(Sample.ID, Sex, Sex.1)
+
+lingcod_sexColumns %>% 
+  group_by(Sex) %>%
+  tally()
+
+lingcod_sexColumns %>% 
+  group_by(Sex.1) %>%
+  tally()
+```
+
+There are 1321 total observations. 165 of which contained sebastes in stomach content
+
+## Create working dataset
+
+- I chose to use the "Sex.1" column rather than "Sex" because it corrected the "U" sex observations in the "Sex" column. 
+- I select columns that I believe will be relevant to the project. 
+- I create a new column that sums up stomach content (by weight and number) across all sebastes species. 
+- I filtered out any rows where Sex.1 is blank because all values in the row were 0
+- Replaced all 0's in Ages column with NAs
+
+
+```{r create working dataset}
+lingcod_rockfish <- lingcod %>%
+  select(Sample.ID, Ages, Date..yymmdd., Port, Location, Lat, Long,
+         Depth.ft, TL.cm, Sex.1, Wt.kg, Gape, Maturity, Stage, 
+         Gut.wt.kg, Gut.contents.kg, X..Sebastes, wt..Sebastes, 
+         X..Sebastes.jordani, wt..Sebastes.jordani, X..Yellowtail.Rockfish,
+         wt..Yellowtail.Rockfish, X..Blue.Rockfish, wt..Blue.Rockfish,
+         X..Black.Rockfish, wt..Black.RF, X..Puget.Sound.Rockfish,
+         wt..Puget.Sound.Rockfish) %>% 
+  replace(is.na(.), 0) %>%
+  mutate(X..Sebastes.Total = rowSums(select(.,X..Sebastes, X..Sebastes.jordani,
+                                            X..Yellowtail.Rockfish, X..Blue.Rockfish,
+                                            X..Black.Rockfish, X..Puget.Sound.Rockfish))) %>% 
+  mutate(wt..Sebastes.Total = rowSums(select(.,wt..Sebastes, wt..Sebastes.jordani,
+                                             wt..Yellowtail.Rockfish, wt..Blue.Rockfish,
+                                             wt..Black.RF, wt..Puget.Sound.Rockfish))) %>% 
+  filter(Sex.1 != "")
+
+### Replace all 0s in Ages column with NAs
+lingcod_rockfish$Ages <- replace(lingcod_rockfish$Ages, lingcod_rockfish$Ages == 0, NA)
+```
+
+
+## Missing Ages Values
+
+There are 189 observations with missing Ages values (~14% of the data). It might be worth estimating their ages based off of lengths (in cm) or weights (in kg). I created a table with the range of length values for each Age, including the total number of observations in that age class
+
+```{r Length at Age, message= FALSE}
+lingcod_rockfish %>% 
+  group_by(Ages) %>%
+  summarise(
+    MaxLengthByAge = max(TL.cm, na.rm = T),
+    MinLengthByAge = min(TL.cm, na.rm = T),
+    MeanLengthByAge = mean(TL.cm, na.rm = T),
+    n = n()
+  ) %>%
+  arrange(Ages)
+```
+
+## Data Visualization
+
+Let's look at how Length Varies with Age between Males and Females
+```{r LengthxAge, message=FALSE, warning=FALSE}
+ggplot(lingcod_rockfish, aes(x = Ages, y = TL.cm, color = Sex.1)) +
+  geom_point() +
+  theme_classic()
+```
+
+
+How much sebastes by weight was found in each age class. Fewer points because only 165 observations with sebastes gut content > 0
+```{r StomachcontentxAge, message=FALSE, warning=FALSE}
+ggplot(lingcod_rockfish, aes(x = Ages, y = wt..Sebastes.Total, color = Sex.1)) +
+  geom_point() +
+  theme_classic()
+```
+
+How Age varies with Depth
+```{r AgexDepth, message=FALSE, warning=FALSE}
+ggplot(lingcod_rockfish, aes(x = Ages, y = Depth.ft, color = Sex.1)) +
+  geom_point() +
+  theme_classic()
+```
+
+
+
+
+
+
+
+
+
+

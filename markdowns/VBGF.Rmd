@@ -1,0 +1,237 @@
+---
+title: "VBGF"
+author: "Andrea Odell"
+date: "12/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(FSA)
+library(FSAdata)
+library(nlstools)
+library(car)
+```
+
+## Von Bertallanfy 
+
+My attempt at fitting a Von Bertallanfy model to the lingcod age-length data. I first tested Schnute, but realized that the parameters were still kind of correlated. I tried the Francis parameterization and that was a little bit better.  
+**BUT** I realized that I was estimating lengths from age rather than estimating age from length. So, now I need to figure out how to do that...
+
+
+## Create working dataset
+
+Subset data with only sample id, age, and length for each sex separately
+
+```{r subsetdata}
+lingcod <- read.csv("data/Lingcod with Gut Contents_All_BB.csv")
+
+lingcod_rockfish <- lingcod %>%
+  select(Sample.ID, Ages, Date..yymmdd., Port, Location, Lat, Long,
+         Depth.ft, TL.cm, Sex.1, Wt.kg, Gape, Maturity, Stage, 
+         Gut.wt.kg, Gut.contents.kg, X..Sebastes, wt..Sebastes, 
+         X..Sebastes.jordani, wt..Sebastes.jordani, X..Yellowtail.Rockfish,
+         wt..Yellowtail.Rockfish, X..Blue.Rockfish, wt..Blue.Rockfish,
+         X..Black.Rockfish, wt..Black.RF, X..Puget.Sound.Rockfish,
+         wt..Puget.Sound.Rockfish) %>% 
+  replace(is.na(.), 0) %>%
+  mutate(X..Sebastes.Total = rowSums(select(.,X..Sebastes, X..Sebastes.jordani,
+                                            X..Yellowtail.Rockfish, X..Blue.Rockfish,
+                                            X..Black.Rockfish, X..Puget.Sound.Rockfish))) %>% 
+  mutate(wt..Sebastes.Total = rowSums(select(.,wt..Sebastes, wt..Sebastes.jordani,
+                                             wt..Yellowtail.Rockfish, wt..Blue.Rockfish,
+                                             wt..Black.RF, wt..Puget.Sound.Rockfish))) %>% 
+  filter(Sex.1 != "") ## We realized that rows with NA for Sex were all just 0s
+lingcod_rockfish$Ages <- replace(lingcod_rockfish$Ages, lingcod_rockfish$Ages == 0, NA)
+
+
+lingcoddiets_male <- lingcod_rockfish %>% 
+  filter(Sex.1 == "M") %>% 
+  select(Sample.ID, Ages, TL.cm) %>%  ### 690 observations prior to omitting NA's
+  na.omit()   ### 551 complete observations (NA's removed)
+
+# Females
+lingcoddiets_female <- lingcod_rockfish %>% 
+  filter(Sex.1 == "F") %>% 
+  select(Sample.ID, Ages, TL.cm) %>%  ### 630 observations prior to omitting NA's
+  na.omit()   ### 580 complete observations (NA's removed)
+
+```
+
+There are 551 complete observations (age available) out of 690 observations for males
+
+There are 580 complete observations out of 630 observations for females
+
+## Visualize the data
+
+```{r visualize}
+ggplot(lingcoddiets_female, aes(x = Ages, y = TL.cm)) +
+  geom_point() +
+  theme_classic() +
+  ggtitle("female") +
+  xlim(0, 17) +
+  ylim(20,125)
+
+ggplot(lingcoddiets_male, aes(x = Ages, y = TL.cm)) +
+  geom_point() +
+  theme_classic()+
+  ggtitle("male") +
+  xlim(0, 17) +
+  ylim(20,125)
+```
+
+## Find Starting Values
+
+You need to estimate starting values for your model. This was really easy using the 'vbStarts' function
+
+```{r starting values}
+#males
+sv_schnutes_males <- vbStarts(TL.cm~Ages,data=lingcoddiets_male,type="Schnute", ages2use=c(2,12))
+unlist(sv_schnutes_males)
+      ### L1 = 27, L3 = 81.9, K = 0.3291414
+sv_francis_males <- vbStarts(TL.cm~Ages,data=lingcoddiets_male,type="Francis",tFrancis=c(2,12))
+unlist(sv_francis_males)
+      ### L1 = 27, L2 = 67.79846, L3 = 81.90000
+# Females
+sv_schnutes_females <- vbStarts(TL.cm~Ages,data=lingcoddiets_female,type="Schnute", ages2use=c(2,17))
+unlist(sv_schnutes_females)
+      ## L1 = 43.9428571, L3 = 112, K = 0.1452901
+sv_francis_females <- vbStarts(TL.cm~Ages,data=lingcoddiets_female,type="Francis",tFrancis=c(2,17))
+unlist(sv_francis_females)
+      ### L1 = 43.94286, L2 = 90.91599, L3 = 112.00000
+```
+
+## Call in the growth function
+
+```{r growth function}
+vbschnute <- vbFuns("Schnute")
+
+vbfrancis <- vbFuns("Francis")
+ages_francis_male <- c(2,12)
+ages_francis_female <- c(2,17)
+```
+
+
+## Fit the model to the data
+
+bootstrapped to create confidence intervals of parameters and to plot the bootstrapped parameters against each other to determine correlations
+
+# schute
+
+```{r model fitting schnute}
+# male
+
+fittedgrowth_male <- nls(TL.cm~vbschnute(Ages, L1,L3,K,t1=2,t3=12),
+                        data=lingcoddiets_male,
+                        start=sv_schnutes_males)
+summary(fittedgrowth_male,correlation=TRUE)
+boot_male <- nlsBoot(fittedgrowth_male,niter=200)
+confint(boot_male,plot=TRUE)
+plot(boot_male)
+     # Parameters seem to still be incredibly correlated
+
+# female
+
+fittedgrowth_female <- nls(TL.cm~vbschnute(Ages, L1,L3,K,t1=2,t3=17),
+                         data=lingcoddiets_female,
+                         start=sv_schnutes_females)
+summary(fittedgrowth_female,correlation=TRUE)
+boot_female <- nlsBoot(fittedgrowth_female,niter=1000)
+confint(boot_female,plot=TRUE)
+plot(boot_female)
+    # Parameters seem to still be incredibly correlated
+
+```
+
+# francis
+
+```{r model fitting francis}
+    # Let's try using the francis parameterization
+fittedgrowth_francis_male <- nls(TL.cm~vbfrancis(Ages,L1,L2,L3,t1=ages_francis_male[1],t3=ages_francis_male[2]), 
+                                 data=lingcoddiets_male,start=sv_francis_males)
+overview(fittedgrowth_francis_male)
+bootfrancis_male <- nlsBoot(fittedgrowth_francis_male,niter=1000)
+confint(bootfrancis_male,plot=TRUE)
+plot(bootfrancis_male)
+      # a little better but still somewhat correlated
+
+# Let's try using the francis parameterization
+fittedgrowth_francis_female <- nls(TL.cm~vbfrancis(Ages,L1,L2,L3,t1=ages_francis_female[1],t3=ages_francis_female[2]), 
+                                 data=lingcoddiets_female,start=sv_francis_females)
+overview(fittedgrowth_francis_female)
+bootfrancis_female <- nlsBoot(fittedgrowth_francis_female,niter=500)
+confint(bootfrancis_female,plot=TRUE)
+plot(bootfrancis_female)
+      # A little better, but still somewhat correlated
+```
+## Visualize model on data
+
+```{r model visualization}
+fitPlot(fittedgrowth_francis_male,xlab="Age",ylab="Total Length (mm)",main="male")
+fitPlot(fittedgrowth_francis_female,xlab="Age",ylab="Total Length (mm)",main="female")
+```
+
+## Predictions
+
+Create a dataframe with predicted values and upper/lower confidence intervales
+
+
+# male
+```{r predictions male}
+
+AgePredicted_male <- data.frame(Ages = 5)
+predict(fittedgrowth_francis_male, AgePredicted_male)
+ests_m <- bootfrancis_male$coefboot
+L1_m <- ests_m[,"L1"]
+L2_m <- ests_m[,"L2"]
+L3_m <- ests_m[,"L3"]
+r_m <- (L3_m-L2_m)/(L2_m-L1_m)
+
+        # Predicting  using alternative code
+male_agerange <- 0:14
+LCI_male <- UCI_male <- numeric(length(male_agerange))
+for (i in 1:length(male_agerange)) {
+  pv_m <- L1_m + (L3_m-L1_m)*(1-r_m^(2*(male_agerange[i]-ages_francis_male[1])/(ages_francis_male[2]-ages_francis_male[1])))/(1-r_m^2)
+  LCI_male[i] <- quantile(pv_m,0.025)
+  UCI_male[i] <- quantile(pv_m,0.975)
+}
+
+        ## Create a dataframe with predicted values and upper/lower confidence intervals
+agepredictrange_m <- data.frame(Ages = 0:14)
+predict_m <- predict(fittedgrowth_francis_male, agepredictrange_m)
+predictions_confint_m <- rbind(LCI_male, predict_m, UCI_male)
+colnames(predictions_confint_m) <- c(0:14)
+predictions_confint_m<-as.data.frame(t(predictions_confint_m))
+
+predictions_confint_m
+```
+
+# female
+
+```{r predictions female}
+AgePredicted_female <- data.frame(Ages = 12)
+predict(fittedgrowth_francis_female, AgePredicted_female)
+ests_f <- bootfrancis_female$coefboot
+L1_f <- ests_f[,"L1"]
+L2_f <- ests_f[,"L2"]
+L3_f <- ests_f[,"L3"]
+r_f <- (L3_f-L2_f)/(L2_f-L1_f)
+
+female_agerange <- 0:14
+LCI_female <- UCI_female <- numeric(length(female_agerange))
+for (i in 1:length(female_agerange)) {
+  pv_f <- L1_f+ (L3_f-L1_f)*(1-r_f^(2*(female_agerange[i]-ages_francis_female[1])/(ages_francis_female[2]-ages_francis_female[1])))/(1-r_f^2)
+  LCI_female[i] <- quantile(pv_f,0.025)
+  UCI_female[i] <- quantile(pv_f,0.975)
+}
+
+      ## Create a dataframe with predicted values and upper/lower confidence intervals
+agepredictrange_f <- data.frame(Ages = 0:14)
+predict_f <- predict(fittedgrowth_francis_female, agepredictrange_f)
+predictions_confint_f <- rbind(LCI_female, predict_f, UCI_female)
+colnames(predictions_confint_f) <- c(0:14)
+predictions_confint_f<-as.data.frame(t(predictions_confint_f))
+predictions_confint_f
+```
+
