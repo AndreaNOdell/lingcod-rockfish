@@ -80,7 +80,7 @@ r0 = 220 # Recruitment at unfished biomass
 h = 0.718
 alpha = 4*h / (phi*(1-h)) # Carrying Capacity
 beta = (5*h-1) / (phi*r0*(1-h)) # Steepness
-r_sd = 0 # standard deviation for lognormal distribution for stochastic recruitment
+r_sd = 0.6 # standard deviation for lognormal distribution for stochastic recruitment
 
 # Fishing ----------------------------------------------------------------------
 
