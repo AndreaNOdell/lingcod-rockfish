@@ -134,7 +134,6 @@ for(t in 2:tf) {
   }
 }
 
-# How do I incorporate fishing vulnerability? should f be a matrix?
 # matplot(1:tf, t(nmat[15:20,,"female"]), type = "l")  # plot ages separately
 
 # ggplot -----------------------------------------------------------------------
