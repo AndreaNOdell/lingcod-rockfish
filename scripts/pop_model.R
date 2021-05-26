@@ -222,7 +222,25 @@ fully.recovered <- logical(1000)
 for(n in 1:1000) {
   fully.recovered[n] <- max(rockfish_pop[n,]) >= rockfish_equilibrium 
   }
-mean(fully.recovered)
+mean(fully.recovered) # 0.317
+
+# now increase bycatch
+get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, 
+         bycatch = 0.3, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10, nsims = 1000)
+
+
+# now let's graph!
+pdf("plots/recovery_high_bycatch.pdf")
+matplot(t(rockfish_pop), type = "l", xlab = "Years", ylab = "Abundance")
+abline(h = rockfish_40, lty = 2)
+abline(h = rockfish_equilibrium, lty = 2)
+dev.off()
+
+fully.recovered <- logical(1000)
+for(n in 1:1000) {
+  fully.recovered[n] <- max(rockfish_pop[n,]) >= rockfish_equilibrium 
+}
+mean(fully.recovered) # 0.028
 
 
 
