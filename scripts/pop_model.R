@@ -206,9 +206,11 @@ get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mor
 
 
 # now let's graph!
+pdf("plots/rockfish_recovery.pdf")
 matplot(t(rockfish_pop), type = "l", xlab = "Years", ylab = "Abundance")
 abline(h = rockfish_40, lty = 2)
 abline(h = rockfish_equilibrium, lty = 2)
+dev.off()
 
 #ggplot(ntot_r, aes(x = time, y = abundance)) +
 #  geom_line() +
