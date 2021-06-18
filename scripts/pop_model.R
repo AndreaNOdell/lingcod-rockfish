@@ -75,7 +75,10 @@ rm(mat.at.age, length.at.age, weight.at.age, age, a, b, k, Linf) #clean up envir
 
 # model ------------------------------------------------------------------------
 
-get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, bycatch = 0, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 50, nsims = 10) {
+get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, 
+                    nat.mort, fish.mort = 0.1, bycatch = 0, r_sd = 0.6, h, r0, nage,
+                    tf = 100, n.init.l = 100, n.init.r = 50, nsims = 10,
+                    corr, autocorr, cv = 0.6, mn = 0.5*cv^2, npops = 2, ind_pops = NULL) {
   # Calculate phi for bev holt curve
   phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))
   phi.r = with(rockfish, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE))
@@ -100,11 +103,14 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
 
 # Simulations
   for(n in 1:nsims) {
-    
+  
+    #create a matrix of correlated and autocorrelated time series for two populations
+    corr_eps = sim_correlated_ar_ts(corr, autocorr, cv, mn, tf, npops, ind_pops = NULL)  
+  
 # lingcod 
   # run for loop
     for(t in 2:tf) { # loop through time
-      eps_r = rlnorm(1, meanlog = 0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
+      #eps_r = rlnorm(1, meanlog = 0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
       for(ling.sex in c("female", "male")){
         M = with(lingcod, nat.mort[ling.sex] + fish.mort*susceptibility[ling.sex,])
         # At new time step, first calculate recruitment via spawning biomass and input into first row
@@ -114,7 +120,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
           SBLs[lingcod.sex] = with(lingcod, sum((0.5*nmat.l[,t-1,lingcod.sex]) * weight.at.age[lingcod.sex,] * mat.at.age[lingcod.sex,])) 
         }
         SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
-        nmat.l[1,t,ling.sex] = with(lingcod, 0.5*(BevHolt(phi.l, h, r0, SBL)[ling.sex])*eps_r) # input Bev Holt recruitment into first row of time t
+        nmat.l[1,t,ling.sex] = with(lingcod, 0.5*(BevHolt(phi.l, h, r0, SBL)[ling.sex])*corr_eps[(t-1),1]) # input Bev Holt recruitment into first row of time t
         # Then calculate number of individuals in subsequent ages
         nmat.l[2:lingcod$nage, t, ling.sex] = nmat.l[1:(lingcod$nage-1), t-1, ling.sex] * exp(-M[1:(length(M)-1)])
         nmat.l[lingcod$nage, t, ling.sex] = (nmat.l[lingcod$nage-1, t-1, ling.sex] * exp(-M[length(M)])) + (nmat.l[lingcod$nage, t-1, ling.sex] * exp(-M[length(M)]))
@@ -123,7 +129,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
       M = with(rockfish, nat.mort + bycatch*fish.mort*selectivity)
       # eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
       SBL = with(rockfish, sum((nmat.r[,t-1]) * weight.at.age * mat.at.age))
-      nmat.r[1,t] = with(rockfish, (BevHolt(phi.r, h, r0, SBL))*eps_r) # input Bev Holt recruitment into first row of time t
+      nmat.r[1,t] = with(rockfish, (BevHolt(phi.r, h, r0, SBL))*corr_eps[(t-1), 2]) # input Bev Holt recruitment into first row of time t
         
       # Then calculate number of individuals in subsequent ages
       nmat.r[2:rockfish$nage, t] = nmat.r[1:(rockfish$nage-1), t-1] * exp(-M[1:(length(M)-1)])
@@ -151,13 +157,15 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
 
 # Get rockfish equilibrium
 get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0, 
-         bycatch = 0.1, r_sd = 0, h, r0, nage, tf = 200, n.init.l = 100, n.init.r = 10, nsims = 1) 
+         bycatch = 0.1, r_sd = 0, h, r0, nage, tf = 200, n.init.l = 100, n.init.r = 10, nsims = 1,
+         corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, npops = 2, ind_pops = NULL) 
 rockfish_equilibrium = rockfish_pop[,150]
 rockfish_40 = 0.4*rockfish_equilibrium
 
 # now run with 1000 simulations
 get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, 
-         bycatch = 0.1, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10, nsims = 1000)
+         bycatch = 0.1, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10, nsims = 1000,
+         corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, npops = 2, ind_pops = NULL)
 
 
 # now let's graph!
@@ -181,7 +189,8 @@ mean(fully.recovered) # 0.317
 
 # now increase bycatch
 get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, 
-         bycatch = 0.3, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10, nsims = 1000)
+         bycatch = 0.3, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10, nsims = 10,
+         corr = 0, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, npops = 2, ind_pops = NULL)
 
 
 # now let's graph!
