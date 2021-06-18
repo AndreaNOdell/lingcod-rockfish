@@ -3,54 +3,8 @@
 library(tidyverse)
 library(PNWColors)
 theme_set(theme_classic()) # set all ggplot graphs to classic theme
+source("scripts/functions.R") #Load in functions
 
-
-# Functions --------------------------------------------------------------------
-
-# Function to calculate length using age
-calc_lengthxage = function(Linf, k, age) {
-  length_a = Linf*(1 - exp(-k*age))
-  print(length_a)
-}
-
-# Function to calculate weight using lengths
-# w = aL^b
-calc_weightxlength = function(L, a, b) {
-  w = a*(L^b)
-  print(w)
-}
-
-BevHolt = function(phi, h, r0, SBL) ((4*h / (phi*(1-h)))*SBL) / (1 + ((5*h-1) / (phi*r0*(1-h)))*SBL)
-
-# Phi calculation - calculate survival into each age class (L(a) * exp(-M))
-phi_calc = function(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE) {
-  if(lingcod) {
-    phi_n0 = 1 # Initial recruit
-    phi_struct = matrix(NA, nrow = 2, ncol = length(age)) # Empty matrix to fill
-    phi_struct[,1] = phi_n0 # Fill in initial recruit
-    rownames(phi_struct) = c("female", "male") # name rows
-    for(ling.sex in c("female", "male")) { # Calculate survival across ages
-      for(j in 1:(length(age)-1)) {
-        phi_struct[ling.sex,j+1] = phi_struct[ling.sex,j] * exp(-nat.mort[ling.sex])
-      }
-    }
-    # Then multiply each age class by weights and maturity and inverse
-    sb_r = phi_struct * weight.at.age * mat.at.age # Spawners per recruit
-    phi = 1/rowSums(sb_r) # Recruits per spawner
-  } else {
-      phi_n0 = 1 # Initial recruit
-      phi_struct = numeric(length(age)) # Empty matrix to fill
-      phi_struct[1] = phi_n0 # Fill in initial recruit
-      # Calculate survival across ages
-      for(j in 1:(length(age)-1)) {
-        phi_struct[j+1] = phi_struct[j] * exp(-nat.mort)
-      }
-      # Then multiply each age class by weights and maturity and inverse
-      sb_r = phi_struct * weight.at.age * mat.at.age # Spawners per recruit
-      phi = 1/sum(sb_r)# Recruits per spawner
-      #print(phi)
-  }
-}
 
 # Lingcod Parameters ----------------------------------------------------------
 # From 2017 stock assessment
@@ -116,7 +70,7 @@ rockfish = list(length.at.age = length.at.age, # vector of length at age
                 r0 = 220,
                 selectivity = c(rep(0, 4), rep(1, 62))) # recruitment at unfished biomass
 
-rm(mat.at.age, length.at.age, weight.at.age, age, a, b, k, Linf)
+rm(mat.at.age, length.at.age, weight.at.age, age, a, b, k, Linf) #clean up environment
 
 
 # model ------------------------------------------------------------------------
@@ -125,7 +79,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
   # Calculate phi for bev holt curve
   phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))
   phi.r = with(rockfish, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE))
-  # empty matrix
+  # empty matrix for age-structured population across years
   n0.l = rep(n.init.l, length(lingcod$age)) # Initial starting size
   nmat.l = with(lingcod, array(NA, dim = c(length(age), tf, 2), 
                  dimnames=list(age=NULL, 
@@ -137,19 +91,20 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
   nmat.r = with(rockfish, matrix(NA, nrow = length(age), ncol = tf))
   nmat.r[,1] = n0.r
 
-# simulations
- ntot_l = array(NA, dim = c(nsims, tf, 2), # lingcod empty array
+# empty array/matrix for total population size across years 
+ ntot_l = array(NA, dim = c(nsims, tf, 2), # empty array for total lingcod population size across years
                             dimnames=list(simulations=1:nsims, 
                                           year=1:tf, 
                                           ling.sex=c('female', 'male')))
- ntot_r = matrix(NA, nrow = nsims, ncol = tf)
+ ntot_r = matrix(NA, nrow = nsims, ncol = tf) # empty matrix for total rockfish population size across years
 
+# Simulations
   for(n in 1:nsims) {
     
 # lingcod 
   # run for loop
     for(t in 2:tf) { # loop through time
-      eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
+      eps_r = rlnorm(1, meanlog = 0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
       for(ling.sex in c("female", "male")){
         M = with(lingcod, nat.mort[ling.sex] + fish.mort*susceptibility[ling.sex,])
         # At new time step, first calculate recruitment via spawning biomass and input into first row
