@@ -96,7 +96,7 @@ nmat = matrix(NA, nrow = nage, ncol = tf)
 nmat[,1] = n0
 
 for(t in 2:tf) {
-  eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
+  eps_r = rlnorm(1, meanlog = 0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
   SBL = sum((nmat[,t-1]) * wl * ul) 
   nmat[1,t] = (BevHolt(alpha, beta, SBL))*eps_r # input Bev Holt recruitment into first row of time t
     
