@@ -1,3 +1,4 @@
+library(SimDesign)
 # This function simulates an arbitrary number of positive time series that are correlated with one another and are also autocorrelated.
 # corr: correlation between the two time series, on the log-scale 
 # ar: autoregressive parameter for each time series, on the log-scale
@@ -5,7 +6,7 @@
 # mn: mean of the time series, on the log-scale. No bias correction is done, so bias correction should be done prior
 #     to running this function
 # ind_pops: Index of any populations that are independent of the others
-sim_correlated_ar_ts <- function(corr, autocorr, cv, mn, nyrs, npops, ind_pops = NULL) {
+sim_correlated_ar_ts <- function(corr, autocorr, cv, mn, tf, npops, ind_pops = NULL) {
   sigma.mat <- matrix(0, nrow = npops, ncol = npops)
   diag(sigma.mat) <- cv^2 * (1-autocorr^2)
   for(pop1 in 1:(npops-1)) {
@@ -16,11 +17,11 @@ sim_correlated_ar_ts <- function(corr, autocorr, cv, mn, nyrs, npops, ind_pops =
   
   
   burn.in <- 300
-  eps <- rmvnorm(nyrs + burn.in, rep(0,npops), sigma.mat) %>%
+  eps <- rmvnorm(tf + burn.in, rep(0,npops), sigma.mat) %>%
     as.data.frame()
   
   out.ts <- map2(eps, autocorr, function(.x, .y)
-    as.vector(arima.sim(list(ar = .y), nyrs, innov = .x[burn.in+1:nyrs], start.innov = .x[1:burn.in]))) %>% 
+    as.vector(arima.sim(list(ar = .y), tf, innov = .x[burn.in+1:tf], start.innov = .x[1:burn.in]))) %>% 
     map2(mn, ~ exp(.x + .y)) %>%
     bind_cols() %>%
     as.matrix()
