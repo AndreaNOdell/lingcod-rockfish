@@ -1,4 +1,5 @@
 library(SimDesign)
+source("scripts/functions.R")
 
 corr = 0.8
 autocorr = c(0.23, 0.23)
