@@ -163,9 +163,10 @@ rockfish_equilibrium = rockfish_pop[,150]
 rockfish_40 = 0.4*rockfish_equilibrium
 
 # now run with 1000 simulations
+cv = 0.6
 get_popn(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivity, nat.mort, fish.mort = 0.1, 
          bycatch = 0.1, r_sd = 0.6, h, r0, nage, tf = 100, n.init.l = 100, n.init.r = 10, nsims = 1000,
-         corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, npops = 2, ind_pops = NULL)
+         corr = 0.8, autocorr = c(0.23,0.23), cv = cv, mn = 0.5*cv^2, npops = 2, ind_pops = NULL)
 
 
 # now let's graph!
