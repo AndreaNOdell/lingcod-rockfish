@@ -1,11 +1,16 @@
 library(tidyverse)
+
+# lingcod_working dataset is the dataset with total weight and number of all prey items
+#                         and all columns of diet info retained
+# lingcod_rockfish dataset is the dataset with a subset of relevant location and fish info
+#                          and only columns including rockfish prey info
   
 
 ### Read the data in
 lingcod <- read.csv("data/Lingcod with Gut Contents_All_BB.csv")
 colnames(lingcod)
 
-## Calculate the sum of all the gut content in weight
+## Calculate the sum of all the gut content by weight
 lingcod_gut_content_wt <- lingcod %>% 
   select(Sample.ID, contains("wt.."))
 lingcod_gut_content_wt[is.na(lingcod_gut_content_wt)] <- 0
@@ -13,9 +18,18 @@ lingcod_gut_content_wt <- lingcod_gut_content_wt %>%
   mutate(wt..Total = rowSums(lingcod_gut_content_wt[,2:103])) %>% 
   select(Sample.ID, wt..Total)
 
+## Calculate the sum of all the gut content by number
+lingcod_gut_content_X <- lingcod %>% 
+  select(Sample.ID, contains("X.."))
+lingcod_gut_content_X[is.na(lingcod_gut_content_X)] <- 0
+lingcod_gut_content_X <- lingcod_gut_content_X %>% 
+  mutate(X..Total = rowSums(lingcod_gut_content_X[,2:103])) %>% 
+  select(Sample.ID, X..Total)
+
 # New table with total food in stomach  
-lingcod_working <- left_join(lingcod, lingcod_gut_content_wt, by = "Sample.ID")
-lingcod_working <- lingcod_working %>% 
+lingcod_working <- left_join(lingcod, lingcod_gut_content_wt, by = "Sample.ID") 
+lingcod_working <- left_join(lingcod_working, lingcod_gut_content_X, by = "Sample.ID")
+lingcod_working <- lingcod_working %>% # Remove the NA rows at the end
   slice(1:1321)
 
 
@@ -41,7 +55,7 @@ lingcod_rockfish <- lingcod_working %>%
          X..Sebastes.jordani, wt..Sebastes.jordani, X..Yellowtail.Rockfish,
          wt..Yellowtail.Rockfish, X..Blue.Rockfish, wt..Blue.Rockfish,
          X..Black.Rockfish, wt..Black.RF, X..Puget.Sound.Rockfish,
-         wt..Puget.Sound.Rockfish, wt..Total) %>% 
+         wt..Puget.Sound.Rockfish, wt..Total, X..Total) %>% 
   replace(is.na(.), 0) %>%
   mutate(X..Sebastes.Total = rowSums(select(.,X..Sebastes, X..Sebastes.jordani,
                                             X..Yellowtail.Rockfish, X..Blue.Rockfish,
@@ -68,7 +82,6 @@ Sex_NA <- lingcod_rockfish %>%
 
 ### Replace all 0s in Ages column with NAs
 lingcod_rockfish$Ages <- replace(lingcod_rockfish$Ages, lingcod_rockfish$Ages == 0, NA)
-
 
 
 ### It is important to determine the ages that are NA because we are
