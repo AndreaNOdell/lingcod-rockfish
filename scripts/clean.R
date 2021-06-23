@@ -225,8 +225,29 @@ lingcod_rockfish <- rbind(lingcod_male, lingcod_female)
 lingcod_rockfish <- lingcod_rockfish %>% 
   mutate(gut.ratio.sebastes.wt = wt..Sebastes.Total/wt..Total) %>% 
   mutate(gut.ratio.sebastes.X = X..Sebastes.Total/X..Total)
+lingcod_rockfish$gut.ratio.sebastes.wt[is.na(lingcod_rockfish$gut.ratio.sebastes.wt)] <- 0
+
+# Dataframe with the average diet fraction by weight that is sebastes for each age and sex 
+dietfrac_by_age_wt <- lingcod_rockfish %>% 
+  group_by(Sex.1, age_useful) %>% 
+  summarise(mean = mean(gut.ratio.sebastes.wt), sd = sd(gut.ratio.sebastes.wt), n = n())
+dietfrac_by_age_wt$sd[is.na(dietfrac_by_age_wt$sd)] <- 0
+
+# Dataframe with the average diet fraction by number that is sebastes for each age and sex 
+dietfrac_by_age_X <- lingcod_rockfish %>% 
+  group_by(Sex.1, age_useful) %>% 
+  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n())
+dietfrac_by_age_X$sd[is.na(dietfrac_by_age_X$sd)] <- 0
 
 
+# Trying to graph the diet fractions but miserably failing
+ggplot(lingcod_rockfish, aes(x = age_useful, y = gut.ratio.sebastes.wt)) +
+  geom_dotplot(binaxis='y', stackdir='center') +
+  theme_classic() + 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+                                 geom="errorbar", color="red", width=0.2) +
+  stat_summary(fun.y=mean, geom="point", color="red") +
+  facet_wrap(vars(Sex.1))
 
 ####################################
 ####################################
