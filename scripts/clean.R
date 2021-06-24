@@ -12,7 +12,7 @@ library(car)
 ####################################
 
 ### Read the data in
-lingcod <- read.csv("data/Lingcod with Gut Contents_All_BB.csv")
+lingcod <- read.csv("data/LingcodwithGutContents_All_BB.csv")
 
 ## Calculate the sum of all the gut content in weight and create new column
 ## with total gut content in weight
@@ -135,9 +135,9 @@ male_TL_aget2 = lingcod_rockfish %>% # Filter out all male at t2
 male_TL_aget3 = lingcod_rockfish %>% # Filter out all male at t3
   filter(Sex.1 == "M", Ages == ages_francis_male[2]) %>% 
   select(TL.cm)
-L1_m <- mean(male_TL_aget1$TL.cm) # mean length at relatively young age t1 (age 2 used here)
+L1_m <- mean(male_TL_aget1$TL.cm) # mean length at relatively young age t1 (age 3 used here)
 L2_m <- mean(male_TL_aget2$TL.cm) # mean length at the average of t1 and t2 (age 7 used here)
-L3_m <- mean(male_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 12 used here)
+L3_m <- mean(male_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 11 used here)
 r_m <- (L3_m-L2_m)/(L2_m-L1_m)
 
 predict_age_m <- function(length) { # Function that predicts male age given length
@@ -160,9 +160,9 @@ female_TL_aget2 = lingcod_rockfish %>% # Filter out all female age at t2
 female_TL_aget3 = lingcod_rockfish %>% # Filter out all female age at t2
   filter(Sex.1 == "F", Ages == ages_francis_female[2]) %>% 
   select(TL.cm)
-L1_f <- mean(female_TL_aget1$TL.cm)  # mean length at relatively young age t1 (age 2 used here)
+L1_f <- mean(female_TL_aget1$TL.cm)  # mean length at relatively young age t1 (age 3 used here)
 L2_f <- mean(female_TL_aget2$TL.cm)  # mean length at the average of t1 and t2 (age 9 used here)
-L3_f <- mean(female_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 17 used here)
+L3_f <- mean(female_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 15 used here)
 r_f <- (L3_f-L2_f)/(L2_f-L1_f)
 
 predict_age_f <- function(length) {
@@ -196,8 +196,6 @@ lingcod_female <- lingcod_female %>%
   mutate(age_pred = v_predict_age_f(lingcod_female$TL.cm))
 
 
-
-
 ####################################
 ####################################
 ##### Cleaning Updated  Dataset ####
@@ -227,27 +225,62 @@ lingcod_rockfish <- lingcod_rockfish %>%
   mutate(gut.ratio.sebastes.X = X..Sebastes.Total/X..Total)
 lingcod_rockfish$gut.ratio.sebastes.wt[is.na(lingcod_rockfish$gut.ratio.sebastes.wt)] <- 0
 
+# Create new dataset with just lingcod caught from California ports
+CA_ports <- c("MOR", "BOD", "SDG", "FTB", "SLO", "LOS", "EUR", "HMB", "MON", "EME", "SBA")
+lingcod_rockfish_CA <- lingcod_rockfish %>% 
+  filter(Port %in% CA_ports)
+
+####################################
+####################################
+##### Diet Fraction Calculation ####
+####################################
+####################################
+
 # Dataframe with the average diet fraction by weight that is sebastes for each age and sex 
-dietfrac_by_age_wt <- lingcod_rockfish %>% 
+dietfrac_by_age_wt <- lingcod_rockfish_CA %>% 
   group_by(Sex.1, age_useful) %>% 
-  summarise(mean = mean(gut.ratio.sebastes.wt), sd = sd(gut.ratio.sebastes.wt), n = n())
+  summarise(mean = mean(gut.ratio.sebastes.wt), sd = sd(gut.ratio.sebastes.wt), 
+            n = n(), max = max(gut.ratio.sebastes.wt), min = min(gut.ratio.sebastes.wt))
 dietfrac_by_age_wt$sd[is.na(dietfrac_by_age_wt$sd)] <- 0
 
 # Dataframe with the average diet fraction by number that is sebastes for each age and sex 
-dietfrac_by_age_X <- lingcod_rockfish %>% 
+dietfrac_by_age_X <- lingcod_rockfish_CA %>% 
   group_by(Sex.1, age_useful) %>% 
-  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n())
+  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n(),
+            max = max(gut.ratio.sebastes.X), min = min(gut.ratio.sebastes.X))
 dietfrac_by_age_X$sd[is.na(dietfrac_by_age_X$sd)] <- 0
 
+# The proportion of stomachs that contained rockfish of all the stomachs
+lingcod_rockfish_CA_F <- lingcod_rockfish_CA %>% 
+  filter(Sex.1 == "F")
+lingcod_rockfish_CA_M <- lingcod_rockfish_CA %>% 
+  filter(Sex.1 == "M")
+perc.occurrence <- (sum(lingcod_rockfish_CA$X..Sebastes.Total > 0)/nrow(lingcod_rockfish_CA))*100
+perc.occurrence.F <- (sum(lingcod_rockfish_CA_F$X..Sebastes.Total > 0)/nrow(lingcod_rockfish_CA_F))*100
+perc.occurrence.M <- (sum(lingcod_rockfish_CA_M$X..Sebastes.Total > 0)/nrow(lingcod_rockfish_CA_M))*100
 
-# Trying to graph the diet fractions but miserably failing
-ggplot(lingcod_rockfish, aes(x = age_useful, y = gut.ratio.sebastes.wt)) +
-  geom_dotplot(binaxis='y', stackdir='center') +
-  theme_classic() + 
-  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
-                                 geom="errorbar", color="red", width=0.2) +
-  stat_summary(fun.y=mean, geom="point", color="red") +
-  facet_wrap(vars(Sex.1))
+perc.abundance.number <- sum(lingcod_rockfish_CA$X..Sebastes.Total)/sum(lingcod_rockfish_CA$X..Sebastes.Total > 0)
+perc.abundance.weight <- sum(lingcod_rockfish_CA$wt..Sebastes.Total)/sum(lingcod_rockfish_CA$X..Sebastes.Total > 0)
+
+### Proportion of gut content that is Sebastes across Ages
+  # males
+ggplot(lingcod_rockfish_CA[which(lingcod_rockfish_CA$Sex.1 == "M"),], aes(age_useful, gut.ratio.sebastes.wt)) +
+  geom_point(color = "cyan3") +
+  theme_classic() +
+  labs( x = "Lingcod Age", y = "Fraction of diet that is Sebastes", title = "Male") +
+  xlim(0,17)
+  # females
+ggplot(lingcod_rockfish_CA[which(lingcod_rockfish_CA$Sex.1 == "F"),], aes(age_useful, gut.ratio.sebastes.wt)) +
+  geom_point(color = "lightcoral") +
+  theme_classic() +
+  labs( x = "Lingcod Age", y = "Fraction of diet that is Sebastes", title = "Female") +
+  xlim(0,17)
+
+#graphing the mean diet fraction by age
+ggplot(dietfrac_by_age_wt, aes(age_useful, mean, col = Sex.1)) +
+  geom_point() +
+  labs( x = "Lingcod Age", y = "Average fraction of diet that is Sebastes") +
+  theme_classic()
 
 ####################################
 ####################################
