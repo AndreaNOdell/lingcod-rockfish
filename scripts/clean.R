@@ -179,6 +179,25 @@ v_predict_age_m <- Vectorize(predict_age_m)
 v_predict_age_f <- Vectorize(predict_age_f)
 
 
+# making a predicted age x length dataframe to graph over the data
+
+lingcod_male <- lingcod_rockfish %>% 
+  filter(Sex.1 == "M")
+lingcod_female <- lingcod_rockfish %>% 
+  filter(Sex.1 == "F")
+
+#males
+predicted_age_m = sapply(1:120, predict_age_m)
+predicted_age_m = pmax(predicted_age_m, 0)
+predicted_age_m = as.data.frame(predicted_age_m) %>% 
+  mutate(length = 1:120)
+#females
+predicted_age_f = sapply(1:120, predict_age_f)
+predicted_age_f = pmax(predicted_age_f, 0)
+predicted_age_f = as.data.frame(predicted_age_f) %>% 
+  mutate(length = 1:120)
+
+
 # Add a new row with the predicted ages
 ## Males
 lingcod_male <- lingcod_rockfish %>% 
