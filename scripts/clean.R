@@ -214,6 +214,22 @@ lingcod_female <- lingcod_rockfish %>%
 lingcod_female <- lingcod_female %>% 
   mutate(age_pred = v_predict_age_f(lingcod_female$TL.cm))
 
+# Let's compare how well the predicted ages align with the observed ages
+lingcod_age_comparison <- lingcod_rockfish %>% 
+  select(Ages, age_pred)
+
+predicted_smaller = lingcod_age_comparison$Ages > lingcod_age_comparison$age_pred
+predicted_smaller <- predicted_smaller[!is.na(predicted_smaller)]
+sum(predicted_smaller) #296 underestimate
+
+predicted_bigger = lingcod_age_comparison$Ages < lingcod_age_comparison$age_pred
+predicted_bigger <- predicted_bigger[!is.na(predicted_bigger)]
+sum(predicted_bigger) #522 overestimate
+
+predicted_same = lingcod_age_comparison$Ages == lingcod_age_comparison$age_pred
+predicted_same <- predicted_same[!is.na(predicted_same)]
+sum(predicted_same) # 313 estimate well
+
 
 ####################################
 ####################################
