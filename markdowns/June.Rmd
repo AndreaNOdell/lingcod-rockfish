@@ -228,5 +228,3 @@ $Q =\sum_{s} \sum_{a_l=1}^{l} P_{a_l} L_{a_l,s}$
 where $P$ is a vector of the proportion of lingcod diet that is composed of Sebastes by lingcod age.
 
 
-
-
