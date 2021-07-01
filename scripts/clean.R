@@ -97,8 +97,8 @@ L3_m <- mean(male_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 11
 r_m <- (L3_m-L2_m)/(L2_m-L1_m)
 
 predict_age_m <- function(length) { # Function that predicts male age given length
-  if(length >= 83.8) {
-    pred_age <-  14
+  if(length >= 93) { # I chose this length because that's when the predicted age goes above 20
+    pred_age <-  20 # set max age to 20
   } else {
     pred_age <- ages_francis_male[1] + (ages_francis_male[2]-ages_francis_male[1])*((log(1-(1-r_m^2)*((length-L1_m)/(L3_m-L1_m))))/(2*log(r_m)))
   }
@@ -122,8 +122,8 @@ L3_f <- mean(female_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 
 r_f <- (L3_f-L2_f)/(L2_f-L1_f)
 
 predict_age_f <- function(length) {
-  if(length >= 105) {
-    pred_age <-  17
+  if(length >= 117) {
+    pred_age <-  20
   } else {
     pred_age <- ages_francis_female[1] + (ages_francis_female[2]-ages_francis_female[1])*((log(1-(1-r_f^2)*((length-L1_f)/(L3_f-L1_f))))/(2*log(r_f)))
   }
@@ -153,6 +153,15 @@ predicted_age_f = pmax(predicted_age_f, 0)
 predicted_age_f = as.data.frame(predicted_age_f) %>% 
   mutate(length = 1:120)
 
+plot(lingcod_female$Ages, lingcod_female$TL.cm, type = "p", xlab = "Ages", ylab = "Length (cm)", main = "female", ylim = c(0,120))
+lines(predicted_age_f$predicted_age_f, predicted_age_f$length)
+
+plot(lingcod_male$Ages, lingcod_male$TL.cm, type = "p", xlab = "Ages", ylab = "Length (cm)", main = "male", ylim = c(0,100))
+lines(predicted_age_m$predicted_age_m, predicted_age_m$length)
+
+plot(lingcod_female$TL.cm, lingcod_female$Ages, type = "p", ylab = "Ages", xlab = "Length (cm)", main = "female")
+lines(predicted_age_f$length, predicted_age_f$predicted_age_f)
+
 
 # Add a new row with the predicted ages
 ## Males
@@ -172,20 +181,24 @@ lingcod_female <- lingcod_female %>%
 
 # Let's compare how well the predicted ages align with the observed ages
 lingcod_age_comparison <- lingcod_rockfish %>% 
-  select(Ages, age_pred)
+  select(Ages, age_pred, Sex.1, TL.cm)
 
 predicted_smaller = lingcod_age_comparison$Ages > lingcod_age_comparison$age_pred
 predicted_smaller <- predicted_smaller[!is.na(predicted_smaller)]
-sum(predicted_smaller) #296 underestimate
+underestimated = sum(predicted_smaller) #296 underestimate
 
 predicted_bigger = lingcod_age_comparison$Ages < lingcod_age_comparison$age_pred
 predicted_bigger <- predicted_bigger[!is.na(predicted_bigger)]
-sum(predicted_bigger) #522 overestimate
+overestimated = sum(predicted_bigger) #522 overestimate
 
 predicted_same = lingcod_age_comparison$Ages == lingcod_age_comparison$age_pred
 predicted_same <- predicted_same[!is.na(predicted_same)]
-sum(predicted_same) # 313 estimate well
+estimated_well = sum(predicted_same) # 313 estimate well
 
+total_estimated = underestimated + overestimated + estimated_well
+underestimated/total_estimated
+overestimated/total_estimated
+estimated_well/total_estimated
 
 ####################################
 ####################################
@@ -227,57 +240,6 @@ lingcod_rockfish_CA <- lingcod_rockfish %>%
 #save lingcod_rockfish_CA as data
 save(lingcod_rockfish_CA, file = "cleaned_data/lingcod_rockfish_CA.Rdata")
 
-####################################
-####################################
-##### Diet Fraction Calculation ####
-####################################
-####################################
-
-# Dataframe with the average diet fraction by weight that is sebastes for each age and sex 
-dietfrac_by_age_wt <- lingcod_rockfish_CA %>% 
-  group_by(Sex.1, age_useful) %>% 
-  summarise(mean = mean(gut.ratio.sebastes.wt), sd = sd(gut.ratio.sebastes.wt), 
-            n = n(), max = max(gut.ratio.sebastes.wt), min = min(gut.ratio.sebastes.wt))
-dietfrac_by_age_wt$sd[is.na(dietfrac_by_age_wt$sd)] <- 0
-
-# Dataframe with the average diet fraction by number that is sebastes for each age and sex 
-dietfrac_by_age_X <- lingcod_rockfish_CA %>% 
-  group_by(Sex.1, age_useful) %>% 
-  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n(),
-            max = max(gut.ratio.sebastes.X), min = min(gut.ratio.sebastes.X))
-dietfrac_by_age_X$sd[is.na(dietfrac_by_age_X$sd)] <- 0
-
-# The proportion of stomachs that contained rockfish of all the stomachs
-lingcod_rockfish_CA_F <- lingcod_rockfish_CA %>% 
-  filter(Sex.1 == "F")
-lingcod_rockfish_CA_M <- lingcod_rockfish_CA %>% 
-  filter(Sex.1 == "M")
-perc.occurrence <- (sum(lingcod_rockfish_CA$X..Sebastes.Total > 0)/nrow(lingcod_rockfish_CA))*100
-perc.occurrence.F <- (sum(lingcod_rockfish_CA_F$X..Sebastes.Total > 0)/nrow(lingcod_rockfish_CA_F))*100
-perc.occurrence.M <- (sum(lingcod_rockfish_CA_M$X..Sebastes.Total > 0)/nrow(lingcod_rockfish_CA_M))*100
-
-perc.abundance.number <- sum(lingcod_rockfish_CA$X..Sebastes.Total)/sum(lingcod_rockfish_CA$X..Sebastes.Total > 0)
-perc.abundance.weight <- sum(lingcod_rockfish_CA$wt..Sebastes.Total)/sum(lingcod_rockfish_CA$X..Sebastes.Total > 0)
-
-### Proportion of gut content that is Sebastes across Ages
-  # males
-ggplot(lingcod_rockfish_CA[which(lingcod_rockfish_CA$Sex.1 == "M"),], aes(age_useful, gut.ratio.sebastes.wt)) +
-  geom_point(color = "cyan3") +
-  theme_classic() +
-  labs( x = "Lingcod Age", y = "Fraction of diet that is Sebastes", title = "Male") +
-  xlim(0,17)
-  # females
-ggplot(lingcod_rockfish_CA[which(lingcod_rockfish_CA$Sex.1 == "F"),], aes(age_useful, gut.ratio.sebastes.wt)) +
-  geom_point(color = "lightcoral") +
-  theme_classic() +
-  labs( x = "Lingcod Age", y = "Fraction of diet that is Sebastes", title = "Female") +
-  xlim(0,17)
-
-#graphing the mean diet fraction by age
-ggplot(dietfrac_by_age_wt, aes(age_useful, mean, col = Sex.1)) +
-  geom_point() +
-  labs( x = "Lingcod Age", y = "Average fraction of diet that is Sebastes") +
-  theme_classic()
   
 
 
