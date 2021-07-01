@@ -11,21 +11,28 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### July 1, 2021
 
-This week, I did a literature search on "Conditional age-at-length" (CAAL) and was pretty unsuccessful. Much of the literature spoke about integrated stock assessments and estimating CAAL within the stock assessment as opposed to estimating through data externally and using those fixed estimates in stock assessments. I felt like what I was finding wasn't relevant to what I needed since I'm just trying to estimate the growth curve parameters to predict missing ages in the dataset. During my search, however, I did find a paper that uses Bayesian length-at-age models to estimate the growth curve parameters. So, I think I'll give it a shot...
-
-Notes. 
+This week, I did a literature search on "Conditional age-at-length" (CAAL) and was pretty unsuccessful. Much of the literature spoke about integrated stock assessments and estimating CAAL within the stock assessment as opposed to estimating through data externally and using those fixed estimates in stock assessments. I felt like what I was finding wasn't relevant to what I needed since I'm just trying to estimate the growth curve parameters to predict missing ages in the dataset. The CAAL search came about when I mentioned that there may have been a downward bias in the predicted ages compared to observed ages. This was a quick observation I had made based on the data that I saw, but of course I didn't see everything, so I went back to check if my observation was correct by determining the proportion of predictions that underestimated, overestimated, and correctly estimated.
 
 
-```{r cars}
-summary(cars)
+```{r length bias}
+
 ```
 
-## Including Plots
+During my search, however, I did find a paper that uses Bayesian length-at-age models to estimate the growth curve parameters. So, I think I'll give it a shot...
 
-You can also embed plots, for example:
+Notes.  
+$L\infty = 131 cm$ for females and $L\infty= 93 cm$ for males sampled off of British Columbia (Richards et al. 1990).  
+Upon hatching, the larvae are about 12 mm in total length and become epipelagic. 70-80 mm at about 3 months of age.  
+Externally estimated growth parameters using the 2003-2015 WCBTS is $k=0.191$ and $L\infty=100.9$ (female) and $k=0.214$ and $L\infty=86.3$ (male) for the south. Internally estimate growth curves are shown in figure 41  
+![Figure 41 from 2017 lingcod stock assessment](lingcod_south_growthcurve_stockassess.png){height=50%}
+
+
+So, it seems like the external estimates and my own visualization of the internally estimate growth curve above do not correspond to each other well. How come? Obviously data are different, but should it really make that much of a difference if we're trying to estimate the same populations?
+
+
 
 ```{r pressure, echo=FALSE}
-plot(pressure)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
