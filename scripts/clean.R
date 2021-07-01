@@ -260,10 +260,16 @@ lingcod_rockfish <- lingcod_rockfish %>%
   mutate(gut.ratio.sebastes.X = X..Sebastes.Total/X..Total)
 lingcod_rockfish$gut.ratio.sebastes.wt[is.na(lingcod_rockfish$gut.ratio.sebastes.wt)] <- 0
 
+#Save lingcod_rockfish as data
+save(lingcod_rockfish, file = "cleaned_data/lingcod_rockfish.Rdata")
+
 # Create new dataset with just lingcod caught from California ports
 CA_ports <- c("MOR", "BOD", "SDG", "FTB", "SLO", "LOS", "EUR", "HMB", "MON", "EME", "SBA")
 lingcod_rockfish_CA <- lingcod_rockfish %>% 
   filter(Port %in% CA_ports)
+
+#save lingcod_rockfish_CA as data
+save(lingcod_rockfish_CA, file = "cleaned_data/lingcod_rockfish_CA.Rdata")
 
 ####################################
 ####################################
