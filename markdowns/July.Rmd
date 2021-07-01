@@ -40,7 +40,9 @@ overestimated/total_estimated
 estimated_well/total_estimated
 ```
 
-There wasn't much difference in these numbers between male and female, so no sex-related bias. Looking at the estimated growth curve over the observed data for males and females, it may be that the older ages are being underestimated and the younger ages are being overestimated. I am using the francis parameterization, which may not be the best way to model the growth for this dataset. So I can try other parameterizations. I think I was using the francis parameterization because I was trying to use a package originally, and it was the only one that would work. But then I ended up not using the package anyway and I guess I just stuck with that one.
+There wasn't much difference in these numbers between male and female, so no sex-related bias. Looking at the estimated growth curve over the observed data for males and females, it may be that the older ages are being underestimated and the younger ages are being overestimated. I am using the francis parameterization, which may not be the best way to model the growth for this dataset. So I can try other parameterizations. I think I was using the francis parameterization because I was trying to use a package originally, and it was the only one that would work. But then I ended up not using the package anyway and I guess I just stuck with that one. Kiva response: This is fine. The parameterizations are meant to avoid the issue that K and Linf are negatively correlated. 
+
+I currently have a subset of the data with stomach contents. I've asked Bonnie to send me the rest of the data (empty stomachs) so that I have more data points for the length-age predictions.
 
 ```{r VBGF, echo = FALSE, message = FALSE}
 # MALES
@@ -132,14 +134,57 @@ Externally estimated growth parameters using the 2003-2015 WCBTS is $k=0.191$ an
 ![Figure 41 from 2017 lingcod stock assessment](lingcod_south_growthcurve_stockassess.png){height=50%}
 
 
-So, it seems like the external estimates and my own visualization of the internally estimate growth curve above do not correspond to each other well. How come? Obviously data are different, but should it really make that much of a difference if we're trying to estimate the same populations? The internally estimated growth curve looks less like Bonnie's data than the externally estimated parameters.
+So, it seems like the external estimates and my own visualization of the internally estimate growth curve above do not correspond to each other well. How come? Obviously data are different, but should it really make that much of a difference if we're trying to estimate the same populations? The internally estimated growth curve looks less like Bonnie's data than the externally estimated parameters. Kiva response: the way the model is structured might affect the estimates, especially since k and Linf are negatively correlated. So, while the shape of the curve might be the same, the estimated values may be different depending on the model structure used and whether you are estimating both parameters simultaneously or fixing one while estimating the other. 
 
 
-Now, to think about diet compositions
+**Now, to think about diet compositions**
 
+I binned the lengths into 5cm bins and looked at the diet fraction that is sebastes between male and female for lingcod caught off California ports and then lingcod caught from all ports.
 
-```{r pressure, echo=FALSE}
+```{r diet comps CA, echo=FALSE}
+load(file = "cleaned_data/lingcod_rockfish_CA.Rdata")
+bins <- seq((min(lingcod_rockfish_CA$TL.cm)-2), (max(lingcod_rockfish_CA$TL.cm)+3), by=5)
+TL.cm <- as.numeric(lingcod_rockfish_CA$TL.cm)
+labels <- bins
+rangelabels <- paste(head(labels,-1), tail(labels,-1), sep="-")
+lingcod_rockfish_CA$Bin <- cut(TL.cm, bins, rangelabels)
 
+ggplot(lingcod_rockfish_CA, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex.1)) +
+  geom_point() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "length bins (cm)", y = "Diet fraction that is Sebastes", main = "CA only")
+
+lingcod_rockfish_CA %>% 
+  group_by(Sex.1) %>% 
+  summarise(n=n())
+```
+
+```{r diet comps all, echo=FALSE}
+bins_full <- seq((min(lingcod_rockfish$TL.cm)-2), (max(lingcod_rockfish$TL.cm)), by=5)
+TL.cm_full <- as.numeric(lingcod_rockfish$TL.cm)
+labels_full <- bins_full
+rangelabels_full <- paste(head(labels_full,-1), tail(labels_full,-1), sep="-")
+lingcod_rockfish$Bin <- cut(TL.cm_full, bins_full, rangelabels_full)
+
+ggplot(lingcod_rockfish, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex.1)) +
+  geom_point() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "length bins (cm)", y = "Diet fraction that is Sebastes", main = "All ports")
+
+lingcod_rockfish %>% 
+  group_by(Sex.1) %>% 
+  summarise(n=n())
 ```
 
 
+Bonnie et al. found that there was little difference in the scorpaenidae percent abundance by weight between male and females but this is not considering size.
+
+![Figure from Bonnie et al.](percent.abundance.w.png){height=50%}
+
+
+To do next week:  
+- plot age error on y axis and lengths/age on x axis to better visualize the bias in predicted age vs observed age  
+- In the diet composition plot, should plot a weighted average by stomach mass (a fish that ate a little might not be considered equal to a fish that ate a lot). Also plot an average to compare. So, there should be 1 data point per bin. Make circle sizes based on sample size.  
+- Identify a cutoff for older ages to develop a diet composition "plus group" since we don't have much data. This is to set all diet fractions above a certain age to a single value. Use diet composition plot and mess around with bin size to help visualize a cutoff.
