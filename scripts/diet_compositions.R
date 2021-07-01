@@ -1,5 +1,6 @@
 library(tidyverse)
 load(file = "cleaned_data/lingcod_rockfish_CA.Rdata")
+load(file = "cleaned_data/lingcod_rockfish.Rdata")
 
 # To calculate the fraction of lingcod diet that is rockfish, I simply divided 
 # the total Sebastes weight/number by the total weight/number of all gut contents 
@@ -54,3 +55,39 @@ ggplot(dietfrac_by_age_wt, aes(age_useful, mean, col = Sex.1)) +
   geom_point() +
   labs( x = "Lingcod Age", y = "Average fraction of diet that is Sebastes") +
   theme_classic()
+
+
+# Now let's look at whether diet compositions are sex-based or size-based by comparing 
+# male and females of the same size
+
+bins <- seq((min(lingcod_rockfish_CA$TL.cm)-2), (max(lingcod_rockfish_CA$TL.cm)+3), by=5)
+TL.cm <- as.numeric(lingcod_rockfish_CA$TL.cm)
+labels <- bins
+rangelabels <- paste(head(labels,-1), tail(labels,-1), sep="-")
+lingcod_rockfish_CA$Bin <- cut(TL.cm, bins, rangelabels)
+
+ggplot(lingcod_rockfish_CA, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex.1)) +
+  geom_point() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "length bins (cm)", y = "Diet fraction that is Sebastes")
+
+
+bins_full <- seq((min(lingcod_rockfish$TL.cm)-2), (max(lingcod_rockfish$TL.cm)), by=5)
+TL.cm_full <- as.numeric(lingcod_rockfish$TL.cm)
+labels_full <- bins_full
+rangelabels_full <- paste(head(labels_full,-1), tail(labels_full,-1), sep="-")
+lingcod_rockfish$Bin <- cut(TL.cm_full, bins_full, rangelabels_full)
+
+ggplot(lingcod_rockfish, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex.1)) +
+  geom_point() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "length bins (cm)", y = "Diet fraction that is Sebastes")
+
+
+
+
+
+
+
