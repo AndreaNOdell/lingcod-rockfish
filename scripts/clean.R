@@ -5,232 +5,182 @@ library(nlstools)
 library(car)
 
 
-####################################
-####################################
-######### Setting up Data ##########
-####################################
-####################################
+# lingcod dataset: raw data from Bonnie et al. that only inclues stomach contents
+# lingcod_empty dataset: raw data from Bonnie et al. that only includes lingcod with empty stomachs
+# lingcod_full dataset: The binded dataset with lingcod and lingcod_empty
+# lingcod_full_with_age dataset: The lingcod_full dataset with complete age information but only with identified sexes
+# lingcod_rockfish dataset: lingcod_full_with_age dataset that focuses only on rockfish diet data, and include the 
+#       total weight/number of stomach content, total weight/number of stomach content that is sebastes,
+#       and fraction of total weight/number that is sebastes
+# lingcod_rockfish_CA dataset: lingcod_rockfish dataset subsetted for ports off of CA
 
-# lingcod dataset: raw data from Bonnie et al.
-# lingcod_rockfish dataset: the cleaned up dataset looking at only rockfish stomach content,
-#       NA rows removed, ages complete with predicted ages for missing ages, 
-#       and ratio of gut content that is sebastes
-# lingcod_rockfish_CA dataset: Basically the lingcod_rockfish dataset subsetted for 
-#       ports within California
+
+#################################
+######### Load in Data ##########
+#################################
 
 ### Read the data in
+# With stomach contents
 lingcod <- read.csv("raw_data/LingcodwithGutContents_All_BB.csv")
+  # gotta fix some classifications...
+  lingcod$Gape <- as.numeric(lingcod$Gape)
+  lingcod$Gut.contents.kg <- as.numeric(lingcod$Gut.contents.kg)
+  lingcod$Body.wt.minus.gut.contents <- as.numeric(lingcod$Body.wt.minus.gut.contents)
+# Without stomach contents
+lingcod_empty <- read.csv("raw_data/Lingcod_empty_stomachs_All_BB.csv")
+  #gotta fix some classifications...
+  lingcod_empty$logTL.cm <- as.numeric(lingcod_empty$logTL.cm)
+  lingcod_empty$logWt.kg <- as.numeric(lingcod_empty$logWt.kg)
+  lingcod_empty$Gape <- as.numeric(lingcod_empty$Gape)
+# Bind the two datasets
+lingcod_full <- bind_rows(lingcod, lingcod_empty)
+save(lingcod_full, file = "cleaned_data/lingcod_full.Rdata")
+
+
+#########################################
+##### LETS ADD predicted ages!!! ########
+#########################################
+
+# organize what I need
+lingcod_full <- lingcod_full %>% 
+  mutate(Sex = ifelse(Sex == "U", Sex.1, Sex)) %>% # I changed the U in the Sex column to the value in the Sex.1 columm
+  filter(Sex == "F" | Sex == "M") # Then I only want males and females 
+
+
+# Calculate growth using a package (AquaticLifeHistory) https://github.com/jonathansmart/AquaticLifeHistory
+growth_data = lingcod_full %>% 
+  select(Ages, TL.cm, Sex)
+colnames(growth_data) = c("Age", "Length", "Sex")
+growth_data_F = growth_data %>% 
+  filter(Sex == "F")
+growth_data_M = growth_data %>% 
+  filter(Sex == "M")
+F_growthparms = Estimate_Growth(growth_data_F)
+F_Linf = F_growthparms$VonB[1,1]
+F_k = F_growthparms$VonB[2,1]
+# Linf = 108.56   se = 2.542
+# k = 0.182     se = 0.014
+M_growthparms = Estimate_Growth(growth_data_M)
+M_Linf = M_growthparms$VonB[1,1]
+M_k = M_growthparms$VonB[2,1]
+# Linf = 84.557   se = 2.461
+# k = 0.192     se = 0.021
+
+# Create a function that predicts age given lengths
+#females
+predict_age_f = function(length) {
+  if(length >= 106) { # I chose this length because that's when the predicted age goes above 20
+    age_pred = 20 # set max age to 20
+  } else {
+    age_pred = log(1-length/F_Linf) / -F_k
+  }
+  return(age_pred)
+}
+#males
+predict_age_m = function(length) {
+  if(length >= 83) { # I chose this length because that's when the predicted age goes above 20
+    age_pred = 20 # set max age to 20
+  } else {
+    age_pred = log(1-length/M_Linf) / -M_k
+  }
+  return(age_pred)
+}
+
+# Vectorize to prevent warning messages
+predict_age_m <- Vectorize(predict_age_m)
+predict_age_f <- Vectorize(predict_age_f)
+
+# Predict ages for males and females and add to the dataset
+lingcod_full_F = lingcod_full %>% #female
+  filter(Sex == "F") %>% 
+  mutate(age_pred = round(predict_age_f(TL.cm)))
+lingcod_full_M = lingcod_full %>% #male
+  filter(Sex == "M") %>% 
+  mutate(age_pred = round(predict_age_m(TL.cm)))
+lingcod_full = bind_rows(lingcod_full_F, lingcod_full_M) %>% # bind rows
+  mutate(age_error = Ages - age_pred) # Determine error
+
+ggplot(lingcod_full, aes(TL.cm, age_error)) +
+  geom_point() +
+  theme_classic() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
+  labs(y = "Error", x = "Length (cm)", title = "Error in Predicted Lengths")
+
+age_NA <- lingcod_full[is.na(lingcod_full$Ages),]
+
+ggplot(lingcod_full, aes(TL.cm)) +
+  geom_histogram() +
+  theme_classic() +
+  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
+  labs(title = "Lengths to be predicted", x = "Length (cm)")
+
+### Create a new column with complete age (NA's filled in with predicted)
+
+lingcod_full_with_age = lingcod_full %>% 
+  mutate(age_useful = Ages)
+lingcod_full_with_age$age_useful[is.na(lingcod_full_with_age$age_useful)] <- lingcod_full_with_age$age_pred[is.na(lingcod_full_with_age$age_useful)]
+
+
+#age_check = lingcod_full_with_age %>% 
+#  select(Sex, TL.cm, Ages, age_pred, age_error, age_useful)
+
+save(lingcod_full_with_age, file = "cleaned_data/lingcod_full_with_age.Rdata")
+
+
+
+
+#######################################
+#### Let's add gut content info!! #####
+#######################################
 
 ## Calculate the sum of all the gut content in weight and create new column
 ## with total gut content in weight
-lingcod_gut_content_wt <- lingcod %>% 
-  select(Sample.ID, contains("wt.."))
+lingcod_gut_content_wt <- lingcod_full_with_age %>% 
+  select(Sample.ID, contains("wt..")) %>% 
+  filter(Sample.ID != "") # remove lingcod with missing sample.ID since these are empty stomachs anyways
 lingcod_gut_content_wt[is.na(lingcod_gut_content_wt)] <- 0
 lingcod_gut_content_wt <- lingcod_gut_content_wt %>% 
   mutate(wt..Total = rowSums(lingcod_gut_content_wt[,2:103])) %>% 
   select(Sample.ID, wt..Total)
 
-## Calculate the sum of all the gut content by number
-lingcod_gut_content_X <- lingcod %>% 
-  select(Sample.ID, contains("X.."))
+## Calculate the sum of all the gut content by number (same as above but for X)
+lingcod_gut_content_X <- lingcod_full_with_age %>% 
+  select(Sample.ID, contains("X..")) %>% 
+  filter(Sample.ID != "")
 lingcod_gut_content_X[is.na(lingcod_gut_content_X)] <- 0
 lingcod_gut_content_X <- lingcod_gut_content_X %>% 
   mutate(X..Total = rowSums(lingcod_gut_content_X[,2:103])) %>% 
   select(Sample.ID, X..Total)
 
 # New working dataset with total food in stomach  
-lingcod_working <- left_join(lingcod, lingcod_gut_content_wt, by = "Sample.ID")
+lingcod_working <- left_join(lingcod_full_with_age, lingcod_gut_content_wt, by = "Sample.ID")
 lingcod_working <- left_join(lingcod_working, lingcod_gut_content_X, by = "Sample.ID")
-lingcod_working <- lingcod_working %>% # Remove the NA rows at the end
-  slice(1:1321)
 
 # Create working dataset with relevant columns and make a
 # new column grouping all Sebastes species into one
+# Note - we are using the lingcod_full_with_age which subsets ONLY the identified male and female
+#        but I checked the Sex == "" and they are all empty stomachs which shouldn't impact the diet composition stuff
 lingcod_rockfish <- lingcod_working %>%
-  select(Sample.ID, Ages, Date..yymmdd., Port, Location, MPA.1.fish.take.prohibited., Lat, Long,
-         Depth.ft, TL.cm, Sex.1, Wt.kg, Gape, Maturity, Stage, 
+  select(Sample.ID, age_useful, Date..yymmdd., Port, Location, MPA.1.fish.take.prohibited., Lat, Long,
+         Depth.ft, TL.cm, Sex, Wt.kg, Gape, Maturity, Stage, 
          Gut.wt.kg, Gut.contents.kg, X..Sebastes, wt..Sebastes, 
          X..Sebastes.jordani, wt..Sebastes.jordani, X..Yellowtail.Rockfish,
          wt..Yellowtail.Rockfish, X..Blue.Rockfish, wt..Blue.Rockfish,
          X..Black.Rockfish, wt..Black.RF, X..Puget.Sound.Rockfish,
          wt..Puget.Sound.Rockfish, wt..Total, X..Total) %>% 
   replace(is.na(.), 0) %>%
-  mutate(X..Sebastes.Total = rowSums(select(.,X..Sebastes, X..Sebastes.jordani,
+  mutate(X..Sebastes.Total = rowSums(select(.,X..Sebastes, X..Sebastes.jordani, # total number of sebastes contents
                                             X..Yellowtail.Rockfish, X..Blue.Rockfish,
-                                            X..Black.Rockfish, X..Puget.Sound.Rockfish))) %>% 
-  mutate(wt..Sebastes.Total = rowSums(select(.,wt..Sebastes, wt..Sebastes.jordani,
+                                            X..Black.Rockfish, X..Puget.Sound.Rockfish)),
+         wt..Sebastes.Total = rowSums(select(.,wt..Sebastes, wt..Sebastes.jordani, # total weight of sebastes contents
                                              wt..Yellowtail.Rockfish, wt..Blue.Rockfish,
-                                             wt..Black.RF, wt..Puget.Sound.Rockfish))) %>% 
-  filter(Sex.1 != "") ## We realized that rows with NA for Sex were all just 0s
+                                             wt..Black.RF, wt..Puget.Sound.Rockfish)),
+         gut.ratio.sebastes.wt = wt..Sebastes.Total/wt..Total, # fraction of total weight in stomach that is sebastes
+         gut.ratio.sebastes.X = X..Sebastes.Total/X..Total) # fraction of total number in stomach that is sebastes 
 
-# Replace all 0s in Ages column with NAs
-lingcod_rockfish$Ages <- replace(lingcod_rockfish$Ages, lingcod_rockfish$Ages == 0, NA)
-
-
-
-####################################
-####################################
-####### Predict Age by Length ######
-####################################
-####################################
-
-# Create a function that predicts age using the francis parameterization of the 
-# VBGF. At ages that are too high, the function fails because it attempts to 
-# take a log of a negative number which isn't possible. So, an if statement
-# is used to set a specific age for lengths that are too large. This max age is 
-# is determined by the max age in the observed data.
-
-# MALES
-ages_francis_male <- c(3,11) # male t1 and t3 age
-male_TL_aget1 = lingcod_rockfish %>% # Filter out all male age at t1
-  filter(Sex.1 == "M", Ages == ages_francis_male[1]) %>% 
-  select(TL.cm)
-male_TL_aget2 = lingcod_rockfish %>% # Filter out all male at t2
-  filter(Sex.1 == "M", Ages == mean(ages_francis_male)) %>% 
-  select(TL.cm)
-male_TL_aget3 = lingcod_rockfish %>% # Filter out all male at t3
-  filter(Sex.1 == "M", Ages == ages_francis_male[2]) %>% 
-  select(TL.cm)
-L1_m <- mean(male_TL_aget1$TL.cm) # mean length at relatively young age t1 (age 3 used here)
-L2_m <- mean(male_TL_aget2$TL.cm) # mean length at the average of t1 and t2 (age 7 used here)
-L3_m <- mean(male_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 11 used here)
-r_m <- (L3_m-L2_m)/(L2_m-L1_m)
-
-predict_age_m <- function(length) { # Function that predicts male age given length
-  if(length >= 93) { # I chose this length because that's when the predicted age goes above 20
-    pred_age <-  20 # set max age to 20
-  } else {
-    pred_age <- ages_francis_male[1] + (ages_francis_male[2]-ages_francis_male[1])*((log(1-(1-r_m^2)*((length-L1_m)/(L3_m-L1_m))))/(2*log(r_m)))
-  }
-  return(pred_age) 
-}
-
-# FEMALES
-ages_francis_female <- c(3,15)
-female_TL_aget1 = lingcod_rockfish %>% # Filter out all female age at t1
-  filter(Sex.1 == "F", Ages == ages_francis_female[1]) %>% 
-  select(TL.cm)
-female_TL_aget2 = lingcod_rockfish %>% # Filter out all female age at t2
-  filter(Sex.1 == "F", Ages == mean(ages_francis_female)) %>% 
-  select(TL.cm)
-female_TL_aget3 = lingcod_rockfish %>% # Filter out all female age at t2
-  filter(Sex.1 == "F", Ages == ages_francis_female[2]) %>% 
-  select(TL.cm)
-L1_f <- mean(female_TL_aget1$TL.cm)  # mean length at relatively young age t1 (age 3 used here)
-L2_f <- mean(female_TL_aget2$TL.cm)  # mean length at the average of t1 and t2 (age 9 used here)
-L3_f <- mean(female_TL_aget3$TL.cm) # mean length at relatively old age t2 (age 15 used here)
-r_f <- (L3_f-L2_f)/(L2_f-L1_f)
-
-predict_age_f <- function(length) {
-  if(length >= 117) {
-    pred_age <-  20
-  } else {
-    pred_age <- ages_francis_female[1] + (ages_francis_female[2]-ages_francis_female[1])*((log(1-(1-r_f^2)*((length-L1_f)/(L3_f-L1_f))))/(2*log(r_f)))
-  }
-  return(pred_age) 
-}
-
-# this helps prevent the warning messages.
-v_predict_age_m <- Vectorize(predict_age_m)
-v_predict_age_f <- Vectorize(predict_age_f)
-
-
-# making a predicted age x length dataframe to graph over the data
-
-lingcod_male <- lingcod_rockfish %>% 
-  filter(Sex.1 == "M")
-lingcod_female <- lingcod_rockfish %>% 
-  filter(Sex.1 == "F")
-
-#males
-predicted_age_m = sapply(1:120, predict_age_m)
-predicted_age_m = pmax(predicted_age_m, 0)
-predicted_age_m = as.data.frame(predicted_age_m) %>% 
-  mutate(length = 1:120)
-#females
-predicted_age_f = sapply(1:120, predict_age_f)
-predicted_age_f = pmax(predicted_age_f, 0)
-predicted_age_f = as.data.frame(predicted_age_f) %>% 
-  mutate(length = 1:120)
-
-plot(lingcod_female$Ages, lingcod_female$TL.cm, type = "p", xlab = "Ages", ylab = "Length (cm)", main = "female", ylim = c(0,120))
-lines(predicted_age_f$predicted_age_f, predicted_age_f$length)
-
-plot(lingcod_male$Ages, lingcod_male$TL.cm, type = "p", xlab = "Ages", ylab = "Length (cm)", main = "male", ylim = c(0,100))
-lines(predicted_age_m$predicted_age_m, predicted_age_m$length)
-
-plot(lingcod_female$TL.cm, lingcod_female$Ages, type = "p", ylab = "Ages", xlab = "Length (cm)", main = "female")
-lines(predicted_age_f$length, predicted_age_f$predicted_age_f)
-
-
-# Add a new row with the predicted ages
-## Males
-lingcod_male <- lingcod_rockfish %>% 
-  filter(Sex.1 == "M")
-
-lingcod_male <- lingcod_male %>% 
-  mutate(age_pred = v_predict_age_m(lingcod_male$TL.cm))
-
-## Females
-
-lingcod_female <- lingcod_rockfish %>% 
-  filter(Sex.1 == "F")
-
-lingcod_female <- lingcod_female %>% 
-  mutate(age_pred = v_predict_age_f(lingcod_female$TL.cm))
-
-# Let's compare how well the predicted ages align with the observed ages
-lingcod_age_comparison <- lingcod_rockfish %>% 
-  select(Ages, age_pred, Sex.1, TL.cm)
-
-predicted_smaller = lingcod_age_comparison$Ages > lingcod_age_comparison$age_pred
-predicted_smaller <- predicted_smaller[!is.na(predicted_smaller)]
-underestimated = sum(predicted_smaller) #296 underestimate
-
-predicted_bigger = lingcod_age_comparison$Ages < lingcod_age_comparison$age_pred
-predicted_bigger <- predicted_bigger[!is.na(predicted_bigger)]
-overestimated = sum(predicted_bigger) #522 overestimate
-
-predicted_same = lingcod_age_comparison$Ages == lingcod_age_comparison$age_pred
-predicted_same <- predicted_same[!is.na(predicted_same)]
-estimated_well = sum(predicted_same) # 313 estimate well
-
-total_estimated = underestimated + overestimated + estimated_well
-underestimated/total_estimated
-overestimated/total_estimated
-estimated_well/total_estimated
-
-####################################
-####################################
-##### Cleaning Updated  Dataset ####
-####################################
-####################################
-
-### Let's remove the decimal places for the predicted age
-lingcod_male$age_pred <- round(lingcod_male$age_pred)
-lingcod_female$age_pred <- round(lingcod_female$age_pred)
-
-### Create a new column with complete age (NA's filled in with predicted)
-lingcod_male <- lingcod_male %>% 
-  mutate(age_useful = Ages)
-
-lingcod_female <- lingcod_female %>% 
-  mutate(age_useful = Ages)
-
-lingcod_male$age_useful[is.na(lingcod_male$age_useful)] <- lingcod_male$age_pred[is.na(lingcod_male$age_useful)]
-lingcod_female$age_useful[is.na(lingcod_female$age_useful)] <- lingcod_female$age_pred[is.na(lingcod_female$age_useful)]
-
-### Merge male and female dataset to re-create the lingcod_rockfish dataset
-lingcod_rockfish <- rbind(lingcod_male, lingcod_female)
-
-### Create a new column with the proportion of stomach content that is sebastes
-lingcod_rockfish <- lingcod_rockfish %>% 
-  mutate(gut.ratio.sebastes.wt = wt..Sebastes.Total/wt..Total) %>% 
-  mutate(gut.ratio.sebastes.X = X..Sebastes.Total/X..Total)
-lingcod_rockfish$gut.ratio.sebastes.wt[is.na(lingcod_rockfish$gut.ratio.sebastes.wt)] <- 0
-
-#Save lingcod_rockfish as data
 save(lingcod_rockfish, file = "cleaned_data/lingcod_rockfish.Rdata")
+
 
 # Create new dataset with just lingcod caught from California ports
 CA_ports <- c("MOR", "BOD", "SDG", "FTB", "SLO", "LOS", "EUR", "HMB", "MON", "EME", "SBA")
