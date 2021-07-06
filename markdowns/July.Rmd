@@ -188,3 +188,48 @@ To do next week:
 - plot age error on y axis and lengths/age on x axis to better visualize the bias in predicted age vs observed age  
 - In the diet composition plot, should plot a weighted average by stomach mass (a fish that ate a little might not be considered equal to a fish that ate a lot). Also plot an average to compare. So, there should be 1 data point per bin. Make circle sizes based on sample size.  
 - Identify a cutoff for older ages to develop a diet composition "plus group" since we don't have much data. This is to set all diet fractions above a certain age to a single value. Use diet composition plot and mess around with bin size to help visualize a cutoff.
+
+
+### July 8, 2021
+
+I found a package (AquaticLifeHistory) from https://github.com/jonathansmart/AquaticLifeHistory that will perform length-at-age analyses using a von Bertalanffy growth model, Gompertz model and/or Logistic model (Smart et al. (2016)). I ran the package on the data that I have and the von Bertallanfy growth model was the best fit of the 3 models for both sexes, so I run only this model below
+
+Female - 
+
+```{r growthpkg female, echo = FALSE, warning = FALSE, message = FALSE}
+load(file = "cleaned_data/lingcod_full.Rdata")
+growth_data = lingcod_full %>% 
+  select(Ages, TL.cm, Sex)
+colnames(growth_data) = c("Age", "Length", "Sex")
+growth_data_F = growth_data %>% 
+  filter(Sex == "F")
+growth_data_M = growth_data %>% 
+  filter(Sex == "M")
+#Estimate_Growth(growth_data_F, models = c("VB"))
+```
+
+Male -
+
+```{r growthpkg male, echo = FALSE, warning = FALSE, message = FALSE}
+#Estimate_Growth(growth_data_M, models = c("VB"))
+```
+
+and here is a graph of the error in predicted ages compared to observed ages. The error is pretty large between lengths 75-110 (red dotted line). This is because there are some pretty fast growing individuals in lower age classes that the predictions don't capture. The second graph shows how many ages need to be predicted for a given length. There's quite a bit of ages to be predicted that fall within those lengths that have great error. 
+
+```{r errorgrowth, echo = FALSE, warning = FALSE, message = FALSE}
+ggplot(lingcod_full, aes(TL.cm, age_error)) +
+  geom_point() +
+  theme_classic() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
+  labs(y = "Error", x = "Length (cm)", title = "Error in Predicted Lengths")
+
+age_NA <- lingcod_full[is.na(lingcod_full$Ages),]
+
+ggplot(lingcod_full, aes(TL.cm)) +
+  geom_histogram() +
+  theme_classic() +
+  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
+  labs(title = "Lengths to be predicted", x = "Length (cm)")
+```
+
