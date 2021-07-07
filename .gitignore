@@ -5,4 +5,4 @@
 *.pdf
 plots/*
 raw_data/*
-cleaned_data/
+cleaned_data/*
