@@ -18,8 +18,9 @@ This week, I did a literature search on "Conditional age-at-length" (CAAL) and w
 ```{r length bias, echo = FALSE, message = FALSE}
 library(tidyverse)
 load("cleaned_data/lingcod_rockfish.Rdata")
+load("cleaned_data/lingcod_full_with_age.Rdata")
 
-lingcod_age_comparison <- lingcod_rockfish %>% 
+lingcod_age_comparison <- lingcod_full_with_age %>% 
   select(Ages, age_pred)
 
 predicted_smaller = lingcod_age_comparison$Ages > lingcod_age_comparison$age_pred
@@ -44,7 +45,7 @@ There wasn't much difference in these numbers between male and female, so no sex
 
 I currently have a subset of the data with stomach contents. I've asked Bonnie to send me the rest of the data (empty stomachs) so that I have more data points for the length-age predictions.
 
-```{r VBGF, echo = FALSE, message = FALSE}
+```{r VBGF, echo = FALSE, message = FALSE, eval = FALSE}
 # MALES
 ages_francis_male <- c(3,11) # male t1 and t3 age
 male_TL_aget1 = lingcod_rockfish %>% # Filter out all male age at t1
@@ -100,7 +101,7 @@ v_predict_age_m <- Vectorize(predict_age_m)
 v_predict_age_f <- Vectorize(predict_age_f)
 ```
 
-```{r growthplots, echo = FALSE}
+```{r growthplots, echo = FALSE, eval = FALSE}
 lingcod_male <- lingcod_rockfish %>% 
   filter(Sex.1 == "M")
 lingcod_female <- lingcod_rockfish %>% 
@@ -131,7 +132,7 @@ During my literacture search, however, I did find a paper that uses Bayesian len
 $L\infty = 131 cm$ for females and $L\infty= 93 cm$ for males sampled off of British Columbia (Richards et al. 1990).  
 Upon hatching, the larvae are about 12 mm in total length and become epipelagic. 70-80 mm at about 3 months of age.  
 Externally estimated growth parameters using the 2003-2015 WCBTS is $k=0.191$ and $L\infty=100.9$ (female) and $k=0.214$ and $L\infty=86.3$ (male) for the south. Internally estimate growth curves for south (CA) are shown in figure 41  
-![Figure 41 from 2017 lingcod stock assessment](lingcod_south_growthcurve_stockassess.png){height=50%}
+![Figure 41 from 2017 lingcod stock assessment](July_images/lingcod_south_growthcurve_stockassess.png){height=50%}
 
 
 So, it seems like the external estimates and my own visualization of the internally estimate growth curve above do not correspond to each other well. How come? Obviously data are different, but should it really make that much of a difference if we're trying to estimate the same populations? The internally estimated growth curve looks less like Bonnie's data than the externally estimated parameters. Kiva response: the way the model is structured might affect the estimates, especially since k and Linf are negatively correlated. So, while the shape of the curve might be the same, the estimated values may be different depending on the model structure used and whether you are estimating both parameters simultaneously or fixing one while estimating the other. 
@@ -141,7 +142,7 @@ So, it seems like the external estimates and my own visualization of the interna
 
 I binned the lengths into 5cm bins and looked at the diet fraction that is sebastes between male and female for lingcod caught off California ports and then lingcod caught from all ports.
 
-```{r diet comps CA, echo=FALSE}
+```{r diet comps CA, echo=FALSE, message = FALSE}
 load(file = "cleaned_data/lingcod_rockfish_CA.Rdata")
 bins <- seq((min(lingcod_rockfish_CA$TL.cm)-2), (max(lingcod_rockfish_CA$TL.cm)+3), by=5)
 TL.cm <- as.numeric(lingcod_rockfish_CA$TL.cm)
@@ -149,39 +150,39 @@ labels <- bins
 rangelabels <- paste(head(labels,-1), tail(labels,-1), sep="-")
 lingcod_rockfish_CA$Bin <- cut(TL.cm, bins, rangelabels)
 
-ggplot(lingcod_rockfish_CA, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex.1)) +
+ggplot(lingcod_rockfish_CA, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex)) +
   geom_point() +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "length bins (cm)", y = "Diet fraction that is Sebastes", main = "CA only")
 
 lingcod_rockfish_CA %>% 
-  group_by(Sex.1) %>% 
+  group_by(Sex) %>% 
   summarise(n=n())
 ```
 
-```{r diet comps all, echo=FALSE}
+```{r diet comps all, echo=FALSE, message = FALSE}
 bins_full <- seq((min(lingcod_rockfish$TL.cm)-2), (max(lingcod_rockfish$TL.cm)), by=5)
 TL.cm_full <- as.numeric(lingcod_rockfish$TL.cm)
 labels_full <- bins_full
 rangelabels_full <- paste(head(labels_full,-1), tail(labels_full,-1), sep="-")
 lingcod_rockfish$Bin <- cut(TL.cm_full, bins_full, rangelabels_full)
 
-ggplot(lingcod_rockfish, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex.1)) +
+ggplot(lingcod_rockfish, aes(x = Bin, y = gut.ratio.sebastes.wt, color = Sex)) +
   geom_point() +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "length bins (cm)", y = "Diet fraction that is Sebastes", main = "All ports")
 
 lingcod_rockfish %>% 
-  group_by(Sex.1) %>% 
+  group_by(Sex) %>% 
   summarise(n=n())
 ```
 
 
 Bonnie et al. found that there was little difference in the scorpaenidae percent abundance by weight between male and females but this is not considering size.
 
-![Figure from Bonnie et al.](percent.abundance.w.png){height=50%}
+![Figure from Bonnie et al.](July_images/percent.abundance.w.png){height=50%}
 
 
 To do next week:  
@@ -214,22 +215,36 @@ Male -
 #Estimate_Growth(growth_data_M, models = c("VB"))
 ```
 
-and here is a graph of the error in predicted ages compared to observed ages. The error is pretty large between lengths 75-110 (red dotted line). This is because there are some pretty fast growing individuals in lower age classes that the predictions don't capture. The second graph shows how many ages need to be predicted for a given length. There's quite a bit of ages to be predicted that fall within those lengths that have great error. 
+and here is a graph of the error in predicted ages compared to observed ages. The error is pretty large between lengths 75-110 (red dotted line). This is because there are some pretty fast growing individuals in lower age classes that the predictions don't capture. The second graph shows how many ages need to be predicted for a given length. There's q bit of ages to be predicted that fall within the lengths that have large error. 
 
 ```{r errorgrowth, echo = FALSE, warning = FALSE, message = FALSE}
-ggplot(lingcod_full, aes(TL.cm, age_error)) +
+ggplot(lingcod_full_with_age, aes(TL.cm, age_error)) +
   geom_point() +
   theme_classic() +
   geom_hline(yintercept = 0) +
   geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
   labs(y = "Error", x = "Length (cm)", title = "Error in Predicted Lengths")
 
-age_NA <- lingcod_full[is.na(lingcod_full$Ages),]
+age_NA <- lingcod_full_with_age[is.na(lingcod_full_with_age$Ages),]
 
-ggplot(lingcod_full, aes(TL.cm)) +
+# histogram of lengths that need age predictions
+ggplot(age_NA, aes(TL.cm)) +
   geom_histogram() +
   theme_classic() +
   geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
   labs(title = "Lengths to be predicted", x = "Length (cm)")
 ```
+
+**Diet Composition**
+
+I calculated the weighted mean by grouping the data by Sex and length bins. Then within these groups, I determined the weighting by taking each individuals stomach content divided by the total stomach content of that Sex x Length bin grouping. So, individuals of a given Sex x length bin that ate a lot compared to others in the Sex x Length bin group were weighted higher.
+
+
+![All Ports](July_images/dietcomp_AllPorts.jpeg)
+
+
+![California Ports only](July_images/dietcomp_CAonly.jpeg)
+
+
+
 
