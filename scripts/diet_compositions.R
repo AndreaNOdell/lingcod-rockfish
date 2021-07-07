@@ -79,13 +79,7 @@ male_dietcomp = plot2 = as.data.frame(gut_summary) %>%
     geom_point(aes(x = Bin, y = mean, size = 0.05, color = "mean")) +
     ylim(0,1)
 
-gridExtra::grid.arrange(female_dietcomp, male_dietcomp, ncol=2)
-
-
-# pdf('plots/female_dietcomp_CAonly.pdf')
-# female_dietcomp
-# dev.off()
-# 
+ 
 # pdf('plots/male_dietcomp_CAonly.pdf')
 # male_dietcomp
 # dev.off()
