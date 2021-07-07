@@ -6,3 +6,5 @@
 plots/*
 raw_data/*
 cleaned_data/*
+*.jpeg
+*.png
