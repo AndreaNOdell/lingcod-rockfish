@@ -179,6 +179,9 @@ lingcod_rockfish <- lingcod_working %>%
          gut.ratio.sebastes.wt = wt..Sebastes.Total/wt..Total, # fraction of total weight in stomach that is sebastes
          gut.ratio.sebastes.X = X..Sebastes.Total/X..Total) # fraction of total number in stomach that is sebastes 
 
+lingcod_rockfish$gut.ratio.sebastes.wt[is.na(lingcod_rockfish$gut.ratio.sebastes.wt)] <- 0
+lingcod_rockfish$gut.ratio.sebastes.X[is.na(lingcod_rockfish$gut.ratio.sebastes.X)] <- 0
+
 save(lingcod_rockfish, file = "cleaned_data/lingcod_rockfish.Rdata")
 
 
