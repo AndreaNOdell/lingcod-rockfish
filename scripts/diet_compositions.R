@@ -1,48 +1,55 @@
 library(tidyverse)
-load(file = "cleaned_data/lingcod_rockfish_CA.Rdata")
-load(file = "cleaned_data/lingcod_rockfish.Rdata")
+
+
+# Load in ONE dataset to use
+df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_CA.Rdata")
+df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish.Rdata")
 
 # To calculate the fraction of lingcod diet that is rockfish, I simply divided 
 # the total Sebastes weight/number by the total weight/number of all gut contents 
 # for each lingcod individual.
 
 # Dataframe with the average diet fraction by weight that is sebastes for each age and sex 
-dietfrac_by_age_wt <- lingcod_rockfish_CA %>% 
+dietfrac_by_age_wt <- df %>% 
   group_by(Sex, age_useful) %>% 
   summarise(mean = mean(gut.ratio.sebastes.wt), sd = sd(gut.ratio.sebastes.wt), 
             n = n(), max = max(gut.ratio.sebastes.wt), min = min(gut.ratio.sebastes.wt))
 dietfrac_by_age_wt$sd[is.na(dietfrac_by_age_wt$sd)] <- 0
 
 # Dataframe with the average diet fraction by number that is sebastes for each age and sex 
-dietfrac_by_age_X <- lingcod_rockfish_CA %>% 
-  group_by(Sex.1, age_useful) %>% 
-  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n(),
-            max = max(gut.ratio.sebastes.X), min = min(gut.ratio.sebastes.X))
-dietfrac_by_age_X$sd[is.na(dietfrac_by_age_X$sd)] <- 0
+#dietfrac_by_age_X <- df %>% 
+#  group_by(Sex.1, age_useful) %>% 
+#  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n(),
+#            max = max(gut.ratio.sebastes.X), min = min(gut.ratio.sebastes.X))
+#dietfrac_by_age_X$sd[is.na(dietfrac_by_age_X$sd)] <- 0
+
+# Set up bin size
+bin_size = 8
+round_to = 10
 
 # Create length bins
-bins_full <- seq(plyr::round_any(min(lingcod_rockfish_CA$TL.cm), 5, f = floor), plyr::round_any(max(lingcod_rockfish_CA$TL.cm), 5, f = ceiling), by=5)
-TL.cm_full <- as.numeric(lingcod_rockfish_CA$TL.cm)
+bins_full <- seq(plyr::round_any(min(df$TL.cm), round_to, f = floor), plyr::round_any(max(df$TL.cm), round_to, f = ceiling), by= bin_size)
+TL.cm_full <- as.numeric(df$TL.cm)
 rangelabels_full <- paste(head(bins_full,-1), tail(bins_full,-1), sep="-")
-lingcod_rockfish_CA$Bin <- cut(TL.cm_full, bins_full, rangelabels_full)
+df$Bin <- cut(TL.cm_full, bins_full, rangelabels_full)
 
 # Let's add a grouped sum by age and sex to do our weightings
-gut_summary = lingcod_rockfish_CA %>% 
-  group_by(Sex, age_useful) %>% 
+gut_summary = df %>% 
+  group_by(Sex, Bin) %>% 
   summarise(mean = mean(gut.ratio.sebastes.wt), 
             sd = sd(gut.ratio.sebastes.wt),
-            gut_sum_by_sex.age = sum(wt..Total),
+            gut_sum_by_sex.lengthbin = sum(wt..Total),
             n = n())
 gut_summary$sd[is.na(gut_summary$sd)] <- 0
 gut_summary_sum = gut_summary %>% 
-  select(Sex, age_useful, gut_sum_by_sex.age)
+  select(Sex, Bin, gut_sum_by_sex.lengthbin)
 # now add back to dataset
-lingcod_rockfish_CA = left_join(lingcod_rockfish_CA, gut_summary_sum, by = c("Sex", "age_useful"))
+df = left_join(df, gut_summary_sum, by = c("Sex", "Bin"))
 
-lingcod_rockfish_CA$gut.weighting = lingcod_rockfish_CA$wt..Total/lingcod_rockfish_CA$gut_sum_by_sex.age
+df$gut.weighting = df$wt..Total/df$gut_sum_by_sex.lengthbin
 
-gut_summary = lingcod_rockfish_CA %>% 
-  group_by(Sex, age_useful) %>% 
+gut_summary = df %>% 
+  group_by(Sex, Bin) %>% 
   summarise(mean = mean(gut.ratio.sebastes.wt), 
             sd = sd(gut.ratio.sebastes.wt),
             weightedmean = weighted.mean(gut.ratio.sebastes.wt, gut.weighting),
@@ -50,7 +57,39 @@ gut_summary = lingcod_rockfish_CA %>%
             n = n())
 gut_summary[is.na(gut_summary)] = 0
 
-ggplot()
+
+
+female_dietcomp = as.data.frame(gut_summary) %>% 
+  filter(Sex == "F") %>% 
+  ggplot() +
+    geom_point(aes(x = Bin, y = weightedmean, size = n)) +
+    theme_classic() +
+    labs(x = "length bin", y = " Weighted mean", title = "Avg. frac. of diet that is Sebastes in female Lingcod") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_point(aes(x = Bin, y = mean, color = "mean", size = 0.05)) +
+    ylim(0,1)
+
+male_dietcomp = plot2 = as.data.frame(gut_summary) %>% 
+  filter(Sex == "M") %>% 
+  ggplot() +
+    geom_point(aes(x = Bin, y = weightedmean, size = n)) +
+    theme_classic() +
+    labs(x = "length bin", y = " Weighted mean", title = "Avg. frac. of diet that is Sebastes in male Lingcod") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_point(aes(x = Bin, y = mean, size = 0.05, color = "mean")) +
+    ylim(0,1)
+
+gridExtra::grid.arrange(female_dietcomp, male_dietcomp, ncol=2)
+
+
+# pdf('plots/female_dietcomp_CAonly.pdf')
+# female_dietcomp
+# dev.off()
+# 
+# pdf('plots/male_dietcomp_CAonly.pdf')
+# male_dietcomp
+# dev.off()
+
 
 
 # The proportion of stomachs that contained rockfish of all the stomachs
