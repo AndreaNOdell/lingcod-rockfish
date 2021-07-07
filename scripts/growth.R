@@ -65,23 +65,7 @@ lingcod_full_M = lingcod_full %>% #male
 lingcod_full = bind_rows(lingcod_full_F, lingcod_full_M) %>% # bind rows
   mutate(age_error = Ages - age_pred) # Determine error
 
-ggplot(lingcod_full, aes(TL.cm, age_error)) +
-  geom_point() +
-  theme_classic() +
-  geom_hline(yintercept = 0) +
-  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
-  labs(y = "Error", x = "Length (cm)", title = "Error in Predicted Lengths")
-
-age_NA <- lingcod_full[is.na(lingcod_full$Ages),]
-
-ggplot(lingcod_full, aes(TL.cm)) +
-  geom_histogram() +
-  theme_classic() +
-  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
-  labs(title = "Lengths to be predicted", x = "Length (cm)")
-
 ### Create a new column with complete age (NA's filled in with predicted)
-
 lingcod_full_with_age = lingcod_full %>% 
   mutate(age_useful = Ages)
 lingcod_full_with_age$age_useful[is.na(lingcod_full_with_age$age_useful)] <- lingcod_full_with_age$age_pred[is.na(lingcod_full_with_age$age_useful)]
@@ -91,6 +75,22 @@ lingcod_full_with_age$age_useful[is.na(lingcod_full_with_age$age_useful)] <- lin
 #  select(Sex, TL.cm, Ages, age_pred, age_error, age_useful)
 
 save(lingcod_full_with_age, file = "cleaned_data/lingcod_full_with_age.Rdata")
+
+ggplot(lingcod_full_with_age, aes(TL.cm, age_error)) +
+  geom_point() +
+  theme_classic() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
+  labs(y = "Error", x = "Length (cm)", title = "Error in Predicted Lengths")
+
+age_NA <- lingcod_full_with_age[is.na(lingcod_full_with_age$Ages),]
+
+# histogram of lengths that need age predictions
+ggplot(age_NA, aes(TL.cm)) +
+  geom_histogram() +
+  theme_classic() +
+  geom_vline(xintercept = c(70,110), linetype='dotted', col = 'red') +
+  labs(title = "Lengths to be predicted", x = "Length (cm)")
 
 
 ####################################
