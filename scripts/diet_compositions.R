@@ -1,8 +1,12 @@
 library(tidyverse)
+library(gridExtra)
+library(mgcv)
 
 
 # Load in ONE dataset to use
-df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_CA.Rdata")
+# df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_CA.Rdata")
+
+# We'll go ahead and just use the dataset with all of the ports included.
 df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish.Rdata")
 
 # To calculate the fraction of lingcod diet that is rockfish, I simply divided 
@@ -28,10 +32,10 @@ bin_size = 8
 round_to = 10
 
 # Create length bins
-bins_full <- seq(plyr::round_any(min(df$TL.cm), round_to, f = floor), plyr::round_any(max(df$TL.cm), round_to, f = ceiling), by= bin_size)
-TL.cm_full <- as.numeric(df$TL.cm)
-rangelabels_full <- paste(head(bins_full,-1), tail(bins_full,-1), sep="-")
-df$Bin <- cut(TL.cm_full, bins_full, rangelabels_full)
+bins <- seq(plyr::round_any(min(df$TL.cm), round_to, f = floor), plyr::round_any(max(df$TL.cm), round_to, f = ceiling), by= bin_size)
+TL.cm <- as.numeric(df$TL.cm)
+rangelabels <- paste(head(bins,-1), tail(bins,-1), sep="-")
+df$Bin <- cut(TL.cm, bins, rangelabels)
 
 # Let's add a grouped sum by age and sex to do our weightings
 gut_summary = df %>% 
@@ -69,7 +73,7 @@ female_dietcomp = as.data.frame(gut_summary) %>%
     geom_point(aes(x = Bin, y = mean, color = "mean", size = 0.05)) +
     ylim(0,1)
 
-male_dietcomp = plot2 = as.data.frame(gut_summary) %>% 
+male_dietcomp =  as.data.frame(gut_summary) %>% 
   filter(Sex == "M") %>% 
   ggplot() +
     geom_point(aes(x = Bin, y = weightedmean, size = n)) +
@@ -79,10 +83,33 @@ male_dietcomp = plot2 = as.data.frame(gut_summary) %>%
     geom_point(aes(x = Bin, y = mean, size = 0.05, color = "mean")) +
     ylim(0,1)
 
+
+grid.arrange(female_dietcomp, male_dietcomp, ncol=2)
+
+gut_summary$Bin = as.numeric(gut_summary$Bin)
  
 # pdf('plots/male_dietcomp_CAonly.pdf')
 # male_dietcomp
 # dev.off()
+
+diet_f = as.data.frame(gut_summary) %>% 
+  filter(Sex == "F") 
+diet_model_f = gam(mean ~ s(Bin), data = diet_f, method = "REML")
+
+diet_m = as.data.frame(gut_summary) %>% 
+  filter(Sex == "M") %>% 
+  filter(mean < .24) # removed the outlier
+diet_model_m = gam(mean ~ s(Bin), data = diet_m, method = "ML")
+
+plot(diet_model_f,pages=1,residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+plot(diet_model_m,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+
+
+
+
+
+
+
 
 
 
