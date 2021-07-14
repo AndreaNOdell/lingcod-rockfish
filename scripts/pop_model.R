@@ -39,6 +39,7 @@ lingcod = list(length.at.age = length.at.age, # vector of length at age
                 r0 = 4848,  # recruitment at unfished biomass
                 susceptibility = rbind(c(rep(0, 4), rep(1, 16)),c(rep(0, 4), rep(1, 16))))
 rownames(lingcod$susceptibility) = names(lingcod$nat.mort) = c("female", "male") 
+save(lingcod, file = "cleaned_data/lingcod_parms.Rdata")
 
 
 # Rockfish Parameters ----------------------------------------------------------
@@ -69,6 +70,7 @@ rockfish = list(length.at.age = length.at.age, # vector of length at age
                 nage = length(age), # of age classes
                 r0 = 220,
                 selectivity = c(rep(0, 4), rep(1, 62))) # recruitment at unfished biomass
+save(rockfish, file = "cleaned_data/rockfish_parms.Rdata")
 
 rm(mat.at.age, length.at.age, weight.at.age, age, a, b, k, Linf) #clean up environment
 
