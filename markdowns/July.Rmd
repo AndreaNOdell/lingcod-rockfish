@@ -17,7 +17,7 @@ knitr::opts_knit$set(root.dir = "/Users/andrea/Box/UC DAVIS/Oken Lab/lingcod-roc
 
 This week, I did a literature search on "Conditional age-at-length" (CAAL) and was pretty unsuccessful. Much of the literature spoke about integrated stock assessments and estimating CAAL within the stock assessment as opposed to estimating through data externally and using those fixed estimates in stock assessments. I felt like what I was finding wasn't relevant to what I needed since I'm just trying to estimate the growth curve parameters to predict missing ages in the dataset. The CAAL search came about when I mentioned that there may have been a downward bias in the predicted ages compared to observed ages. This was a quick observation I had made based on the data that I saw, but of course I didn't see everything, so I went back to check if my observation was correct by determining the proportion of predictions that underestimated, overestimated, and correctly estimated.
 
-```{r length bias, echo = FALSE, message = FALSE, eval = FALSE}
+```{r length bias, echo = FALSE, message = FALSE}
 library(tidyverse)
 load("cleaned_data/lingcod_rockfish.Rdata")
 load("cleaned_data/lingcod_full_with_age.Rdata")
@@ -265,9 +265,9 @@ To do next week:\
 
 ### July 15, 2021
 
-I fit some GAMs on the male and female un-weighted means for Total Length bin sizes of 8 using `gam()` in the `mgcv` package. For females, the gam fit with wiggliness and looks fine. I used "REML" method. But for males, the outlier at the lower bin length is making the fit just a linear regression (edf = 1) with really poor fit. When I remove the outlier, the fit looks similar to the females and theres a better fit ($r^2$).
+I fit some GAMs on the male and female un-weighted means for Total Length bin sizes of 8 using `gam()` in the `mgcv` package. For females, the gam fit with wiggliness and looks fine. I used "REML" method. But for males, the outlier at the lower bin length is making the fit just a linear regression (edf = 1) with really poor fit. When I remove the outlier, the fit looks similar to the females and theres a better fit ($r^2$). Graphed here is when the outlier is removed for males. First graph is females and next graph is males.
 
-```{r GAMs}
+```{r GAMs, echo = FALSE, warning = FALSE, message = FALSE}
 library(gridExtra)
 library(mgcv)
 
@@ -334,3 +334,18 @@ plot(diet_model_f, pages=1, residuals=TRUE, all.terms=TRUE, shade=TRUE, shade.co
 # plot males
 plot(diet_model_m,pages=1, residuals=TRUE, all.terms=TRUE, shade=TRUE, shade.col=2)
 ```
+
+But when the outlier is included, the gam looks like this:
+
+```{r GAMs 2, echo = FALSE, warning = FALSE, message = FALSE}
+diet_m = as.data.frame(gut_summary) %>% 
+  filter(Sex == "M")
+diet_model_m = gam(mean ~ s(Bin), data = diet_m, method = "ML")
+plot(diet_model_m,pages=1, residuals=TRUE, all.terms=TRUE, shade=TRUE, shade.col=2)
+```
+
+When using weighted means, the model also reduces to a linear model for both males and females.
+
+I then predict the diet composition using the gam model for the length at age in my population model.
+
+My growth curve uses the externally estimated parameters rather than the internally estimated parameters since I can't find those numbers in the stock assessment (they only provide the plot of the curve).
