@@ -101,6 +101,7 @@ diet_f = as.data.frame(gut_summary) %>%
 diet_model_f = gam(mean ~ s(Bin), data = diet_f, method = "REML")
 plot(diet_model_f,pages=1,residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
 summary(diet_model_f)
+gam.check(diet_model_f)
 
 #male
 diet_m = as.data.frame(gut_summary) %>% 
@@ -109,6 +110,7 @@ diet_m = as.data.frame(gut_summary) %>%
 diet_model_m = gam(mean ~ s(Bin), family = gaussian(link = "log-link"), data = diet_m, method = "ML")
 plot(diet_model_m,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
 summary(diet_model_m)
+gam.check(diet_model_m)
 
 #### create a vector of diet composition for age ###
 load(file = "cleaned_data/lingcod_parms.Rdata")
@@ -122,6 +124,10 @@ diet_comp_m = predict.gam(diet_model_m, lingcod_male)
 
 plot(diet_comp_f)
 plot(diet_comp_m)
+
+
+
+
 
 
 
