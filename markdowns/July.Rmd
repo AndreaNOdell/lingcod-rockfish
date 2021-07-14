@@ -315,37 +315,48 @@ gut_summary = df %>%
             n = n())
 gut_summary[is.na(gut_summary)] = 0
 
-# Set Bin column into numerical form so I can run gamma
-gut_summary$Bin = as.numeric(gut_summary$Bin)
+# must convert bin from categorical to numerical since gams need numerical values.
+gut_summary$Bin = gsub("\\-.*","\\", gut_summary$Bin)
+gut_summary$Bin = as.numeric(gut_summary$Bin) + 0.5*bin_size # Set bin column to be the midpoint of each bin
 
-# Set up dataset and run gam for females
+# female
 diet_f = as.data.frame(gut_summary) %>% 
   filter(Sex == "F") 
 diet_model_f = gam(mean ~ s(Bin), data = diet_f, method = "REML")
+plot(diet_model_f,pages=1,residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+summary(diet_model_f)
 
-# Set up dataset and run gam for males
+#male
 diet_m = as.data.frame(gut_summary) %>% 
   filter(Sex == "M") %>% 
   filter(mean < .24) # removed the outlier
 diet_model_m = gam(mean ~ s(Bin), data = diet_m, method = "ML")
-
-# plot females
-plot(diet_model_f, pages=1, residuals=TRUE, all.terms=TRUE, shade=TRUE, shade.col=2)
-# plot males
-plot(diet_model_m,pages=1, residuals=TRUE, all.terms=TRUE, shade=TRUE, shade.col=2)
+plot(diet_model_m,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+summary(diet_model_m)
 ```
 
 But when the outlier is included, the gam looks like this:
 
-```{r GAMs 2, echo = FALSE, warning = FALSE, message = FALSE}
-diet_m = as.data.frame(gut_summary) %>% 
-  filter(Sex == "M")
-diet_model_m = gam(mean ~ s(Bin), data = diet_m, method = "ML")
-plot(diet_model_m,pages=1, residuals=TRUE, all.terms=TRUE, shade=TRUE, shade.col=2)
-```
+![male GAM w/ outlier](July_images/male_gam_w_outlier.jpeg)
 
 When using weighted means, the model also reduces to a linear model for both males and females.
 
-I then predict the diet composition using the gam model for the length at age in my population model.
+I then predict the diet composition using the gam model for the lengths at age in my population model. Female first and then male
 
-My growth curve uses the externally estimated parameters rather than the internally estimated parameters since I can't find those numbers in the stock assessment (they only provide the plot of the curve).
+```{r gam predict, echo = FALSE, warning = FALSE, message = FALSE}
+load(file = "cleaned_data/lingcod_parms.Rdata")
+lingcod_female = as.data.frame(lingcod$length.at.age["female",])
+colnames(lingcod_female) = "Bin"
+diet_comp_f = predict.gam(diet_model_f, lingcod_female)
+
+lingcod_male = as.data.frame(lingcod$length.at.age["male",])
+colnames(lingcod_male) = "Bin"
+diet_comp_m = predict.gam(diet_model_m, lingcod_male)
+
+plot(diet_comp_f)
+plot(diet_comp_m)
+```
+
+My growth curve uses the externally estimated parameters rather than the internally estimated parameters since I can't find those numbers in the stock assessment (they only provide the plot of the curve). The female diet composition doesn't curve back down because my population model length at max age (20) is about 95cm, while the gam model predictions go up to about 120cm.
+
+Something to think about: For the diet composition data, I estimated age using the lingcod diet data from Bonnie et al. which had length measurements of all the individuals and a subsample of age estimates. However, these growth parameter estimates are different than the ones I am using for the population model. For the population model, I am using externally estimated parameters from the 2017 stock assessment. Because my diet composition vector is predicted by length (bins), is it fine that the length-age estimates don't align?
