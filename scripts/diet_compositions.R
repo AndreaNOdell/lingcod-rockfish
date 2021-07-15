@@ -64,11 +64,11 @@ gut_summary[is.na(gut_summary)] = 0
 female_dietcomp = as.data.frame(gut_summary) %>% 
   filter(Sex == "F") %>% 
   ggplot() +
-    geom_point(aes(x = Bin, y = weightedmean, size = n)) +
+#    geom_point(aes(x = Bin, y = weightedmean, size = n)) +
     theme_classic() +
     labs(x = "length bin", y = " Weighted mean", title = "Avg. frac. of diet that is Sebastes in female Lingcod") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    geom_point(aes(x = Bin, y = mean, color = "mean", size = 0.05)) +
+    geom_point(aes(x = Bin, y = mean, color = "mean", size = n)) +
     ylim(0,1)
 
 male_dietcomp =  as.data.frame(gut_summary) %>% 
@@ -107,7 +107,7 @@ gam.check(diet_model_f)
 diet_m = as.data.frame(gut_summary) %>% 
   filter(Sex == "M")# %>% 
 #  filter(mean < .24) # removed the outlier
-diet_model_m = gam(mean ~ s(Bin), family = gaussian(link = "log-link"), data = diet_m, method = "ML")
+diet_model_m = gam(mean ~ s(Bin), data = diet_m, method = "REML")
 plot(diet_model_m,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
 summary(diet_model_m)
 gam.check(diet_model_m)
