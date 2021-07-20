@@ -8,3 +8,4 @@ raw_data/*
 cleaned_data/*
 *.jpeg
 *.png
+/PM_dietfraction_method
