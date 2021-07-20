@@ -12,7 +12,7 @@ lingcod_full <- lingcod_full %>%
   filter(Sex == "F" | Sex == "M") # Then I only want males and females 
 
 
-# Calculate growth using a package (AquaticLifeHistory) https://github.com/jonathansmart/AquaticLifeHistory
+  # Calculate growth using a package (AquaticLifeHistory) https://github.com/jonathansmart/AquaticLifeHistory
 growth_data = lingcod_full %>% 
   select(Ages, TL.cm, Sex)
 colnames(growth_data) = c("Age", "Length", "Sex")
@@ -74,7 +74,7 @@ lingcod_full_with_age$age_useful[is.na(lingcod_full_with_age$age_useful)] <- lin
 #age_check = lingcod_full_with_age %>% 
 #  select(Sex, TL.cm, Ages, age_pred, age_error, age_useful)
 
-save(lingcod_full_with_age, file = "cleaned_data/lingcod_full_with_age.Rdata")
+# save(lingcod_full_with_age, file = "cleaned_data/lingcod_full_with_age.Rdata")
 
 ggplot(lingcod_full_with_age, aes(TL.cm, age_error, color = Sex)) +
   geom_point() +
@@ -123,7 +123,7 @@ age_length_F = lingcod_full %>%
   summarise(n=n()) %>% 
   select(Bin, Ages, n) %>% 
   drop_na() %>% 
-  pivot_wider(names_from = Ages, values_from = n)
+  spread(Ages, n)
 
 age_length_M = lingcod_full %>% 
   group_by(Bin, Ages, Sex) %>% 
@@ -131,11 +131,11 @@ age_length_M = lingcod_full %>%
   summarise(n=n()) %>% 
   select(Bin, Ages, n) %>% 
   drop_na() %>% 
-  pivot_wider(names_from = Ages, values_from = n)
+  spread(Ages, n)
 
 
-save(age_length_F, file = "cleaned_data/age_length_F.Rdata")
-save(age_length_M, file = "cleaned_data/age_length_M.Rdata")
+# save(age_length_F, file = "cleaned_data/age_length_F.Rdata")
+# save(age_length_M, file = "cleaned_data/age_length_M.Rdata")
 
 
 ####################################
