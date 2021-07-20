@@ -1,16 +1,63 @@
 library(tidyverse)
 library(gridExtra)
 library(mgcv)
+require(plotrix)
+require(stats4)
+require(optimx)
+require(numDeriv)
+require(MASS)
+require(fitdistrplus)
 
 # Load in ONE dataset to use
 # df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_CA.Rdata")
 
 # We'll go ahead and just use the dataset with all of the ports included.
-df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish.Rdata")
+df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_w_gutcontent.Rdata")
 
 # To calculate the fraction of lingcod diet that is rockfish, I simply divided 
 # the total Sebastes weight/number by the total weight/number of all gut contents 
 # for each lingcod individual.
+
+df_F = df %>% 
+  filter(Sex == "F")
+
+df_M = df %>% 
+  filter(Sex == "M")
+
+#gam_F = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_F, family = gaussian(), method = "ML")
+#plot(gam_F,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+
+#gam_M = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_M, family = gaussian(), method = "ML")
+#plot(gam_M,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+
+
+#### Let's try Pam Moriarty's approach ####
+
+# Check covariance of total stomach content and diet fraction
+#females
+plot(df_F$gut.ratio.sebastes.wt, df_F$wt..Total)
+covariance_f = lm(wt..Total ~ gut.ratio.sebastes.wt, data = df_F)
+#males
+plot(df_M$gut.ratio.sebastes.wt, df_M$wt..Total)
+covariance_m = lm(wt..Total ~ gut.ratio.sebastes.wt, data = df_M)
+
+F_diet_data_for_model = df %>% 
+  dplyr::filter(Sex == "F") %>% 
+  dplyr::select(gut.ratio.sebastes.wt, wt..Total)
+M_diet_data_for_model = df %>% 
+  dplyr::filter(Sex == "M") %>% 
+  dplyr::select(gut.ratio.sebastes.wt, wt..Total)
+
+source('PM_dietfraction_method/run.model.R')#prints the parameter estimates for all 8 mixture model parameters, 
+source('PM_dietfraction_method/model.comparison.R')#estimates the prey contribution, c_i, using the mixture model, weighted mean and mean and calculates  error for each estimate
+
+run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2])
+model.comparison(F_diet_data_for_model[,1],F_diet_data_for_model[,2],mat=T)
+
+run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2])
+model.comparison(M_diet_data_for_model[,1],M_diet_data_for_model[,2],mat=T)
+
+
 
 # Dataframe with the average diet fraction by weight that is sebastes for each age and sex 
 dietfrac_by_age_wt <- df %>% 
