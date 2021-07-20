@@ -371,3 +371,4 @@ I gave *Moriarty et. al (2017)*'s diet fraction estimation method a try. Her app
 
 
 and it looks like the match pretty well, so I am going to go ahead and use the age-length key to determine length intervals for each age.
+
