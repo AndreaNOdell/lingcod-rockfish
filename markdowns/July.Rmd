@@ -360,3 +360,14 @@ plot(diet_comp_m)
 My growth curve uses the externally estimated parameters rather than the internally estimated parameters since I can't find those numbers in the stock assessment (they only provide the plot of the curve). The female diet composition doesn't curve back down because my population model length at max age (20) is about 95cm, while the gam model predictions go up to about 120cm.
 
 Something to think about: For the diet composition data, I estimated age using the lingcod diet data from Bonnie et al. which had length measurements of all the individuals and a subsample of age estimates. However, these growth parameter estimates are different than the ones I am using for the population model. For the population model, I am using externally estimated parameters from the 2017 stock assessment. Because my diet composition vector is predicted by length (bins), is it fine that the length-age estimates don't align?
+
+### July 22, 2021
+
+I gave *Moriarty et. al (2017)*'s diet fraction estimation method a try. Her approach estimates diet fraction for all ages aggregated. However, I want a vector of diet fractions given an age [1:20]. First, I want to create length intervals for a given age so that I can maximize the data being used to calculate diet fractions. I estimate this interval using the age-length keys that I developed from the diet data. I did a quick check to see how well the growth curve estimated from the diet data matches the growth curve being used in the stock assessment so that there aren't any biases.
+
+![female age-length key](July_images/female_growth_curve.jpeg)
+
+![male age-length key](July_images/male_growth_curves.jpeg)
+
+
+and it looks like the match pretty well, so I am going to go ahead and use the age-length key to determine length intervals for each age.
