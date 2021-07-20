@@ -3,6 +3,7 @@ library(FSA)
 library(FSAdata)
 library(nlstools)
 library(car)
+library(AquaticLifeHistory)
 
 
 # lingcod dataset: raw data from Bonnie et al. that only inclues stomach contents
@@ -34,7 +35,7 @@ lingcod_empty <- read.csv("raw_data/Lingcod_empty_stomachs_All_BB.csv")
   lingcod_empty$Gape <- as.numeric(lingcod_empty$Gape)
 # Bind the two datasets
 lingcod_full <- bind_rows(lingcod, lingcod_empty)
-save(lingcod_full, file = "cleaned_data/lingcod_full.Rdata")
+  # save(lingcod_full, file = "cleaned_data/lingcod_full.Rdata")
 
 
 #########################################
@@ -65,6 +66,17 @@ M_Linf = M_growthparms$VonB[1,1]
 M_k = M_growthparms$VonB[2,1]
 # Linf = 84.557   se = 2.461
 # k = 0.192     se = 0.021
+
+
+# Look at population model growth curve against this estimate growth curve from diet data
+# first go to lingcod_dynamics script and run the length_l vector
+plot(age, F_Linf*(1-exp(-F_k*age)), main = "Female growth curve", ylab = "length", type = "l", lty = 2) #estimated from diet data
+lines(length_l[1,]) # population model
+legend(x = "bottomright", legend = c("diet data", "stock assessment"), lty = c(2, 1))
+
+plot(age, M_Linf*(1-exp(-M_k*age)), main = "Male growth curve", ylab = "length", type = "l", lty = 2) # estimated from diet data
+lines(length_l[2,]) # population model
+legend(x = "bottomright", legend = c("diet data", "stock assessment"), lty = c(2, 1))
 
 # Create a function that predicts age given lengths
 #females
@@ -184,6 +196,10 @@ lingcod_rockfish$gut.ratio.sebastes.X[is.na(lingcod_rockfish$gut.ratio.sebastes.
 
 save(lingcod_rockfish, file = "cleaned_data/lingcod_rockfish.Rdata")
 
+lingcod_rockfish_w_gutcontent = lingcod_rockfish %>% 
+  filter(wt..Total > 0)
+
+save(lingcod_rockfish_w_gutcontent, file = "cleaned_data/lingcod_rockfish_w_gutcontent.Rdata")
 
 # Create new dataset with just lingcod caught from California ports
 CA_ports <- c("MOR", "BOD", "SDG", "FTB", "SLO", "LOS", "EUR", "HMB", "MON", "EME", "SBA")
