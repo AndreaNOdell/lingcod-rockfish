@@ -94,50 +94,6 @@ ggplot(age_NA, aes(TL.cm)) +
 
 
 
-
-
-
-#############################
-####### Age-Length Key ######
-#############################
-
-# Clear everything and re-load the lingcod_full dataset.
-
-# organize what I need by changing the sex U to F and filtering dataset to only have F and M
-lingcod_full <- lingcod_full %>% 
-  mutate(Sex = ifelse(Sex == "U", Sex.1, Sex)) %>% # I changed the U in the Sex column to the value in the Sex.1 columm
-  filter(Sex == "F" | Sex == "M")
-
-# Create length bins
-bin_size = 5
-round_to = 5
-bins <- seq(plyr::round_any(min(lingcod_full$TL.cm), round_to, f = floor), plyr::round_any(max(lingcod_full$TL.cm), round_to, f = ceiling), by= bin_size)
-TL.cm <- as.numeric(lingcod_full$TL.cm)
-rangelabels <- paste(head(bins,-1), tail(bins,-1), sep="-")
-lingcod_full$Bin <- cut(TL.cm, bins, rangelabels)
-  
-
-age_length_F = lingcod_full %>% 
-  group_by(Bin, Ages, Sex) %>% 
-  filter(Sex == "F") %>% 
-  summarise(n=n()) %>% 
-  select(Bin, Ages, n) %>% 
-  drop_na() %>% 
-  spread(Ages, n)
-
-age_length_M = lingcod_full %>% 
-  group_by(Bin, Ages, Sex) %>% 
-  filter(Sex == "M") %>% 
-  summarise(n=n()) %>% 
-  select(Bin, Ages, n) %>% 
-  drop_na() %>% 
-  spread(Ages, n)
-
-
-# save(age_length_F, file = "cleaned_data/age_length_F.Rdata")
-# save(age_length_M, file = "cleaned_data/age_length_M.Rdata")
-
-
 ####################################
 ####### Predict Age by Length ######
 ####################################
