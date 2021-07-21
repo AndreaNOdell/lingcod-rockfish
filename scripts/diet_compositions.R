@@ -7,6 +7,7 @@ require(optimx)
 require(numDeriv)
 require(MASS)
 require(fitdistrplus)
+library(FSA)
 
 # Load in ONE dataset to use
 # df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_CA.Rdata")
@@ -24,11 +25,22 @@ df_F = df %>%
 df_M = df %>% 
   filter(Sex == "M")
 
-#gam_F = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_F, family = gaussian(), method = "ML")
-#plot(gam_F,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+#### GAM approach ####
 
-#gam_M = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_M, family = gaussian(), method = "ML")
-#plot(gam_M,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+gam_F = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_F, family = gaussian(), method = "ML")
+plot(gam_F,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+
+gam_M = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_M, family = gaussian(), method = "ML")
+plot(gam_M,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
+
+# Now let's predict diet fractions for the length at age for lingcod from pop model
+lingcod_female = as.data.frame(lingcod$length.at.age["female",])
+colnames(lingcod_female) = "Bin"
+diet_comp_f = predict.gam(diet_model_f, lingcod_female)
+
+lingcod_male = as.data.frame(lingcod$length.at.age["male",])
+colnames(lingcod_male) = "Bin"
+diet_comp_m = predict.gam(diet_model_m, lingcod_male)
 
 
 #### Let's try Pam Moriarty's approach ####
@@ -56,6 +68,46 @@ model.comparison(F_diet_data_for_model[,1],F_diet_data_for_model[,2],mat=T)
 
 run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2])
 model.comparison(M_diet_data_for_model[,1],M_diet_data_for_model[,2],mat=T)
+
+load("cleaned_data/lingcod_parms.Rdata")
+load("cleaned_data/F_length_variation.Rdata")
+load("cleaned_data/M_length_variation.Rdata")
+
+F_length_variation[13:20] = F_length_variation[length(F_length_variation)]
+names(F_length_variation) = 1:20
+
+M_length_variation[12:20] = M_length_variation[length(M_length_variation)]
+names(M_length_variation) = 1:20
+
+female_length_intervals = as.matrix(bind_cols(lower = lingcod$length.at.age[1,]-F_length_variation, upper = lingcod$length.at.age[1,]+F_length_variation))
+male_length_intervals = as.matrix(bind_cols(lower = lingcod$length.at.age[2,]-M_length_variation, upper = lingcod$length.at.age[2,]+M_length_variation))
+
+
+length_intervals <- array(c(female_length_intervals , male_length_intervals ) , dim = c(20, 2, 2), dimnames = list(c(1:20) , c("lower", "upper"), c("F", "M")))
+rm(female_length_intervals, male_length_intervals)
+
+
+run.model.age = function(sex, age) {
+trail = df %>% 
+  dplyr:: filter(Sex == sex) %>% 
+  dplyr:: filter(TL.cm > length_intervals[age,"lower",sex]) %>% 
+  dplyr:: filter(TL.cm < length_intervals[age,"upper",sex]) %>% 
+  dplyr:: select(gut.ratio.sebastes.wt, wt..Total)
+run.model(trail[,1],trail[,2])
+}
+
+F_dietfracs = numeric(20)
+for(n in c(3:20)) {
+  model = run.model.age(sex = "F", age = n)
+  F_dietfracs[n] = model[8,1]$c_i
+}
+
+M_dietfracs = numeric(20)
+for(n in c(3:20)) {
+  model = run.model.age(sex = "M", age = n)
+  M_dietfracs[n] = model[8,1]$c_i
+}
+
 
 
 
