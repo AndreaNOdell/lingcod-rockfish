@@ -112,7 +112,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
 # lingcod 
   # run for loop
     for(t in 2:tf) { # loop through time
-      #eps_r = rlnorm(1, meanlog = 0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
+      #eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r - same value for both popn
       for(ling.sex in c("female", "male")){
         M = with(lingcod, nat.mort[ling.sex] + fish.mort*susceptibility[ling.sex,])
         # At new time step, first calculate recruitment via spawning biomass and input into first row
