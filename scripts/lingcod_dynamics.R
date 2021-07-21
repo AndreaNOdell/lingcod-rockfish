@@ -116,7 +116,7 @@ nmat = array(NA, dim = c(length(age), tf, 2),
 nmat[,1,] = n0
 
 for(t in 2:tf) {
-  eps_r = rlnorm(1, meanlog = 0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r
+  eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r
   for(ling.sex in c("female", "male")){
     mort = M[ling.sex] + f*vl[ling.sex,]  # need to add selectivity
     # At new time step, first calculate recruitment via spawning biomass and input into first row
