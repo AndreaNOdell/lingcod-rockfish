@@ -246,7 +246,8 @@ BUT... There is an "approximate length-conditional" approach from Piner et al. 2
 
 I calculated the weighted mean by grouping the data by Sex and length bins. Then within these groups, I determined the weighting by taking each individuals stomach content divided by the total stomach content of that Sex x Length bin grouping. So, individuals of a given Sex x length bin that ate a lot compared to others in the Sex x Length bin group were weighted higher.
 
-![All Ports](July_images/dietcomp_AllPorts.jpeg){height="25%"} ![California Ports only](July_images/dietcomp_CAonly.jpeg){height="25%"}
+![All Ports](July_images/dietcomp_AllPorts.jpeg){height="25%"}  
+![California Ports only](July_images/dietcomp_CAonly.jpeg){height="25%"}
 
 Would it be appropriate to just try to fit a logistic curve into this and use that for the vector of diet compositions (after converting length bins to ages)?
 
