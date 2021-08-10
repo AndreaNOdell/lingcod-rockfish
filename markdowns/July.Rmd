@@ -377,3 +377,17 @@ I created a function that will first subset the data to the sex of interest and 
 Interestingly, according to the mixture model, males were consuming more rockfish than females.
 
 ![diet fractions](July_images/diet_fractions.jpeg){height="25%"}
+
+
+**For next week:**  
+- Try to fit a gam using `gamlss` package that uses a zero- and one-inflated beta distribution to the diet data (family = BEINF).  
+- Prepare a brief summary of the progress I've made on the lingcod-rockfish project to update Marissa.  
+
+
+### July 29, 2021
+
+
+
+
+
+
