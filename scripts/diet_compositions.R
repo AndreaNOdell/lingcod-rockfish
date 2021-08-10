@@ -8,6 +8,7 @@ require(numDeriv)
 require(MASS)
 require(fitdistrplus)
 library(FSA)
+library(gamlss)
 
 # Load in ONE dataset to use
 # df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_CA.Rdata")
@@ -25,12 +26,35 @@ df_F = df %>%
 df_M = df %>% 
   filter(Sex == "M")
 
+#### GAMlss approach ####
+m1 = gamlss(gut.ratio.sebastes.wt ~ cs(TL.cm), family = BEINF(), data = df_F, method = RS())
+m2 = gamlss(gut.ratio.sebastes.wt ~ ps(TL.cm), family = BEINF(), data = df_F, method = RS())
+m3 = gamlss(gut.ratio.sebastes.wt ~ fp(TL.cm), family = BEINF(), data = df_F, method = RS())
+AIC(m1,m2,m3)
+
+plot(gut.ratio.sebastes.wt ~ TL.cm, data = df_F, xlab = "diet fraction", ylab = "total length", main = "Female")
+lines(df_F$TL.cm[order(df_F$TL.cm)], fitted(m1)[order(df_F$TL.cm)], col = "red")
+lines(df_F$TL.cm[order(df_F$TL.cm)], fitted(m2)[order(df_F$TL.cm)], col = "blue")
+lines(df_F$TL.cm[order(df_F$TL.cm)], fitted(m3)[order(df_F$TL.cm)], col = "green")
+legend("left", legend=c("cs", "ps", "fp"), col=c("red", "blue", "green"), lty = 1, box.lty=0, cex = 0.7)
+
+m4 = gamlss(gut.ratio.sebastes.wt ~ cs(TL.cm), family = BEINF(), data = df_M, method = RS())
+m5 = gamlss(gut.ratio.sebastes.wt ~ ps(TL.cm), family = BEINF(), data = df_M, method = RS())
+m6 = gamlss(gut.ratio.sebastes.wt ~ fp(TL.cm), family = BEINF(), data = df_M, method = RS())
+
+plot(gut.ratio.sebastes.wt ~ TL.cm, data = df_M, xlab = "diet fraction", ylab = "total length", main = "Male")
+lines(df_M$TL.cm[order(df_M$TL.cm)], fitted(m4)[order(df_M$TL.cm)], col = "red")
+lines(df_M$TL.cm[order(df_M$TL.cm)], fitted(m5)[order(df_M$TL.cm)], col = "blue")
+lines(df_M$TL.cm[order(df_M$TL.cm)], fitted(m6)[order(df_M$TL.cm)], col = "green")
+legend("left", legend=c("cs", "ps", "fp"), col=c("red", "blue", "green"), lty = 1, box.lty=0, cex = 0.7)
+AIC(m4,m5,m6)
+
 #### GAM approach ####
 
-gam_F = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_F, family = gaussian(), method = "ML")
+gam_F = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_F, method = "REML")
 plot(gam_F,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
 
-gam_M = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_M, family = gaussian(), method = "ML")
+gam_M = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_M, method = "REML")
 plot(gam_M,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
 
 # Now let's predict diet fractions for the length at age for lingcod from pop model
@@ -110,23 +134,10 @@ for(n in c(3:20)) {
 
 
 
-
-# Dataframe with the average diet fraction by weight that is sebastes for each age and sex 
-dietfrac_by_age_wt <- df %>% 
-  group_by(Sex, age_useful) %>% 
-  summarise(mean = mean(gut.ratio.sebastes.wt), sd = sd(gut.ratio.sebastes.wt), 
-            n = n(), max = max(gut.ratio.sebastes.wt), min = min(gut.ratio.sebastes.wt))
-dietfrac_by_age_wt$sd[is.na(dietfrac_by_age_wt$sd)] <- 0
-
-# Dataframe with the average diet fraction by number that is sebastes for each age and sex 
-#dietfrac_by_age_X <- df %>% 
-#  group_by(Sex.1, age_useful) %>% 
-#  summarise(mean = mean(gut.ratio.sebastes.X), sd = sd(gut.ratio.sebastes.X), n = n(),
-#            max = max(gut.ratio.sebastes.X), min = min(gut.ratio.sebastes.X))
-#dietfrac_by_age_X$sd[is.na(dietfrac_by_age_X$sd)] <- 0
+#### Calculating Average and Weighted Average ####
 
 # Set up bin size
-bin_size = 8
+bin_size = 5
 round_to = 10
 
 # Create length bins
@@ -144,12 +155,13 @@ gut_summary = df %>%
             n = n())
 gut_summary$sd[is.na(gut_summary$sd)] <- 0
 gut_summary_sum = gut_summary %>% 
-  select(Sex, Bin, gut_sum_by_sex.lengthbin)
+  dplyr::select(Sex, Bin, gut_sum_by_sex.lengthbin)
 # now add back to dataset
 df = left_join(df, gut_summary_sum, by = c("Sex", "Bin"))
 
 df$gut.weighting = df$wt..Total/df$gut_sum_by_sex.lengthbin
 
+# Look at summarized info (mean, weighted mean, sd, n) andn check if weighting adds to 1
 gut_summary = df %>% 
   group_by(Sex, Bin) %>% 
   summarise(mean = mean(gut.ratio.sebastes.wt), 
@@ -163,11 +175,11 @@ gut_summary[is.na(gut_summary)] = 0
 female_dietcomp = as.data.frame(gut_summary) %>% 
   filter(Sex == "F") %>% 
   ggplot() +
-#    geom_point(aes(x = Bin, y = weightedmean, size = n)) +
+   geom_point(aes(x = Bin, y = weightedmean, size = n)) +
     theme_classic() +
     labs(x = "length bin", y = " Weighted mean", title = "Avg. frac. of diet that is Sebastes in female Lingcod") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    geom_point(aes(x = Bin, y = mean, color = "mean", size = n)) +
+    geom_point(aes(x = Bin, y = mean, color = "mean", size = 0.05)) +
     ylim(0,1)
 
 male_dietcomp =  as.data.frame(gut_summary) %>% 
@@ -181,14 +193,8 @@ male_dietcomp =  as.data.frame(gut_summary) %>%
     ylim(0,1)
 
 
-grid.arrange(female_dietcomp, male_dietcomp, ncol=2)
- 
-# pdf('plots/male_dietcomp_CAonly.pdf')
-# male_dietcomp
-# dev.off()
-
 ### Fitting a GAM ####
-# to the un-weighted mean of diet composition across length bins.
+# to the weighted mean of diet composition across length bins.
 
 # must convert bin from categorical to numerical since gams need numerical values.
 gut_summary$Bin = gsub("\\-.*","\\", gut_summary$Bin)
