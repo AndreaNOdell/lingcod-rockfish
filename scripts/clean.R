@@ -14,6 +14,7 @@ library(AquaticLifeHistory)
 #       total weight/number of stomach content, total weight/number of stomach content that is sebastes,
 #       and fraction of total weight/number that is sebastes
 # lingcod_rockfish_CA dataset: lingcod_rockfish dataset subsetted for ports off of CA
+# lingcod_rockfish_w_gutcontent dataset: lingcod_rockfish dataset without empty stomachs
 
 
 #################################
