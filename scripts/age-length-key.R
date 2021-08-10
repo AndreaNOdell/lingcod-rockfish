@@ -5,8 +5,9 @@
 # These age-length keys are using only the observed ages (and not the estimated ages)
 # This shows the number of fish within a length bin for each age. You can see the variation 
 # of lengths for a given age as well as which lengths are most common for each age
-
-# Clear everything and re-load the lingcod_full dataset.
+library(tidyverse)
+library(FSA)
+load(file = "cleaned_data/lingcod_full.Rdata")
 
 # organize what I need by changing the sex U to F and filtering dataset to only have F and M
 lingcod_full <- lingcod_full %>% 
