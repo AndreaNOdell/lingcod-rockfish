@@ -58,13 +58,16 @@ gam_M = gam(gut.ratio.sebastes.wt ~ s(TL.cm), data = df_M, method = "REML")
 plot(gam_M,pages=1, residuals=TRUE,all.terms=TRUE,shade=TRUE,shade.col=2)
 
 # Now let's predict diet fractions for the length at age for lingcod from pop model
+load("cleaned_data/lingcod_parms.Rdata")
 lingcod_female = as.data.frame(lingcod$length.at.age["female",])
-colnames(lingcod_female) = "Bin"
-diet_comp_f = predict.gam(diet_model_f, lingcod_female)
+colnames(lingcod_female) = "TL.cm"
+diet_comp_f = predict.gam(gam_F, lingcod_female)
+plot(diet_comp_f, ylim = c(0,0.5), main = "Female")
 
 lingcod_male = as.data.frame(lingcod$length.at.age["male",])
-colnames(lingcod_male) = "Bin"
-diet_comp_m = predict.gam(diet_model_m, lingcod_male)
+colnames(lingcod_male) = "TL.cm"
+diet_comp_m = predict.gam(gam_M, lingcod_male)
+plot(diet_comp_m, ylim = c(0,0.5), main = "Male")
 
 
 #### Let's try Pam Moriarty's approach ####
@@ -77,20 +80,18 @@ covariance_f = lm(wt..Total ~ gut.ratio.sebastes.wt, data = df_F)
 plot(df_M$gut.ratio.sebastes.wt, df_M$wt..Total)
 covariance_m = lm(wt..Total ~ gut.ratio.sebastes.wt, data = df_M)
 
-F_diet_data_for_model = df %>% 
-  dplyr::filter(Sex == "F") %>% 
+F_diet_data_for_model = df_F %>% 
   dplyr::select(gut.ratio.sebastes.wt, wt..Total)
-M_diet_data_for_model = df %>% 
-  dplyr::filter(Sex == "M") %>% 
+M_diet_data_for_model = df_M %>% 
   dplyr::select(gut.ratio.sebastes.wt, wt..Total)
 
 source('PM_dietfraction_method/run.model.R')#prints the parameter estimates for all 8 mixture model parameters, 
 source('PM_dietfraction_method/model.comparison.R')#estimates the prey contribution, c_i, using the mixture model, weighted mean and mean and calculates  error for each estimate
 
-run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2])
+run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2]) # 0.185
 model.comparison(F_diet_data_for_model[,1],F_diet_data_for_model[,2],mat=T)
 
-run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2])
+run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2]) # 0.165
 model.comparison(M_diet_data_for_model[,1],M_diet_data_for_model[,2],mat=T)
 
 load("cleaned_data/lingcod_parms.Rdata")
