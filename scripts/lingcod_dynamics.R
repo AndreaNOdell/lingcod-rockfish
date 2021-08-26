@@ -116,9 +116,9 @@ nmat = array(NA, dim = c(length(age), tf, 2),
 nmat[,1,] = n0
 
 for(t in 2:tf) {
-  eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd)# lognormal distribution for varying r
+  eps_r = rlnorm(1, meanlog = -0.5*r_sd^2, sdlog = r_sd) # lognormal distribution for varying r
   for(ling.sex in c("female", "male")){
-    mort = M[ling.sex] + f*vl[ling.sex,]  # need to add selectivity
+    mort = M[ling.sex] + f*vl[ling.sex,]  # Total mortality = natural + (fishing * selectivity)
     # At new time step, first calculate recruitment via spawning biomass and input into first row
     SBLs = numeric(nsex) # create empty SBL vector
     names(SBLs) = c("female", "male") # name the columns
@@ -128,7 +128,7 @@ for(t in 2:tf) {
     SBL = sum(SBLs) # sum of male and female spawning biomass for total spawning biomass
     nmat[1,t,ling.sex] = 0.5*(BevHolt(SBL)[ling.sex])*eps_r # input Bev Holt recruitment into first row of time t
   
-    # Then calculate number of individuals in subsequent ages
+    # Then calculate biomass of individuals in subsequent ages
     nmat[2:nage, t, ling.sex] = nmat[1:(nage-1), t-1, ling.sex] * exp(-mort[1:19])
     nmat[nage, t, ling.sex] = (nmat[nage-1, t-1, ling.sex] * exp(-mort[20])) + (nmat[nage, t-1, ling.sex] * exp(-mort[20]))
   }
