@@ -44,18 +44,24 @@ b = c(3.248, 3.36) # allometric scaling parameter
 names(Linf) = names(k) = names(a) = names(b) = c("female", "male")
 
 # Calculate length at age into matrix
-length.at.age = matrix(NA, nrow = length(Linf), ncol = length(age))
-rownames(length.at.age) = c("female", "male")
-for(i in c("female","male")) {
-  length.at.age[i,] = calc_lengthxage(Linf[i], k[i], age)
-}
+  # length.at.age = matrix(NA, nrow = length(Linf), ncol = length(age))
+  # rownames(length.at.age) = c("female", "male")
+  # for(i in c("female","male")) {
+  #   length.at.age[i,] = calc_lengthxage(Linf[i], k[i], age)
+  # }
+length.at.age = c(calc_lengthxage(Linf["female"], k["female"], age), calc_lengthxage(Linf["male"], k["male"], age))
+names(length.at.age) = c(paste0("LF_", age), paste0("LM_", age))
+
 # Calculate length at age into matrix
 weight.at.age = calc_weightxlength(length.at.age, a, b) # weight in kg
-# My own estimated vector of maturity for each age class and sex
-mat.at.age = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
-                   c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)))
-rownames(mat.at.age) = c("female", "male")
 
+# My own estimated vector of maturity for each age class and sex
+    #mat.at.age = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
+    #                   c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)))
+    #rownames(mat.at.age) = c("female", "male")
+mat.at.age <- c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14), 0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14))
+names(mat.at.age) = c(paste0("LF_", age), paste0("LM_", age))
+    
 lingcod = list(length.at.age = length.at.age, # vector of length at age
                weight.at.age = weight.at.age, # vector of weight at age
                mat.at.age = mat.at.age, # vector of maturity at age
