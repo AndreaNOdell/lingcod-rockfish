@@ -1,4 +1,10 @@
 # Lingcod diet size spectrum ----------------------------------------------
+# Code via Oken and Essington 2016
+# yelloweye rockfish sexes combined because very little contrast in previous assessments (parsimony)
+
+library(tidyverse)
+load("cleaned_data/lingcod_parms.Rdata")
+load("cleaned_data/rockfish_parms.Rdata")
 
 # from Beaudreau & Essington 2007
 get_gamma_pars <- function(pars, quant5, quant95) {
@@ -13,33 +19,41 @@ optim.result <- exp(optim(c(0,0), get_gamma_pars, quant5=.05, quant95=.29)$par)
 size.spec.al <- optim.result[1] # alpha = 3.93
 size.spec.be <- optim.result[2] # beta = .038 * lingcod length (in cm)
 
-# Paramters from Echeverria & Lenarz, 1984: Table 1 for S. ruberrimus (yelloweye)
+# Parameters from Echeverria & Lenarz, 1984: Table 1 for S. ruberrimus (yelloweye)
 tl.to.sl.int <- -0.1717
 tl.to.sl.slope <- 0.826
-yelloweye.sl <- yelloweye$len.at.age[,'female'] * tl.to.sl.slope + tl.to.sl.int
-yelloweye.Linf.sl <- Linf['female'] * tl.to.sl.slope + tl.to.sl.int
-yelloweye.bins <- c(yelloweye.sl[1] - (yelloweye.sl[2]-yelloweye.sl[1])/2,
+R_Linf = 63.9
+rockfish.sl <- rockfish$length.at.age * tl.to.sl.slope + tl.to.sl.int # Why the conversion? In terms of nutrition?
+rockfish.Linf.sl <- R_Linf * tl.to.sl.slope + tl.to.sl.int
+rockfish.bins <- c(rockfish.sl[1] - (rockfish.sl[2]-rockfish.sl[1])/2, 
                     # beginning of 1st size bin is 
                     # mean length at age 1 - (growth from age 1 to age 2)/2
                     # i.e., force mean length at age 1 as midpoint of bin
-                    (yelloweye.sl[2:length(yelloweye.sl)] + yelloweye.sl[1:(length(yelloweye.sl)-1)])/2,
-                    yelloweye.Linf.sl)
-# end of last size bin is L infinity
+                    (rockfish.sl[2:length(rockfish.sl)] + rockfish.sl[1:(length(rockfish.sl)-1)])/2,
+                    rockfish.Linf.sl)
+                    # end of last size bin is L infinity
 
-binned.size.spec <- array(0, dim=c(nrow(yelloweye$len.at.age), nrow(lingcod$len.at.age), 2), 
-                          dimnames=list(prey.size=NULL, 
-                                        lingcod.size=NULL, lingcod.sex=c('female', 'male')))
+binned.size.spec <- matrix(data = NA, nrow = rockfish$nage, ncol = 2*lingcod$nage)
+col_name <- c(with(lingcod,c(paste0("LF_", age), paste0("LM_", age)))) # names for column (lingcod sex x ages)
+row_name <- with(rockfish, paste0("R_", age)) # names for rows (rockfish ages)
+rownames(binned.size.spec) <- row_name ; colnames(binned.size.spec) <-  col_name
 
-for(ling.sex in c('female', 'male')) {
-  for(ling.size in 1:nrow(lingcod$len.at.age)) {
-    # calculate area of gamma distribution/diet spectrum within each prey size bin
-    gamma.cdf <- pgamma(yelloweye.bins, shape=size.spec.al, 
-                        scale=size.spec.be*lingcod$len.at.age[ling.size, ling.sex]) 
-    unnorm.spec <- gamma.cdf[2:length(gamma.cdf)] - 
-      gamma.cdf[1:(length(gamma.cdf)-1)] 
-    spec.by.num <- unnorm.spec/sum(unnorm.spec)
-    # Convert size spectrum by number into size spectrum by mass!
-    binned.size.spec[,ling.size, ling.sex] <- spec.by.num*yelloweye$wt.at.age$female / 
-      sum(spec.by.num*yelloweye$wt.at.age$female)
+
+for(ling.size in 1:length(lingcod$length.at.age)) {
+  # calculate area of gamma distribution/diet spectrum within each prey size bin
+  gamma.cdf <- pgamma(rockfish.bins, shape=size.spec.al, 
+  scale=size.spec.be*lingcod$length.at.age[ling.size]) 
+  unnorm.spec <- gamma.cdf[2:length(gamma.cdf)] - 
+  gamma.cdf[1:(length(gamma.cdf)-1)] 
+  spec.by.num <- unnorm.spec/sum(unnorm.spec)
+  # Convert size spectrum by number into size spectrum by mass!
+  binned.size.spec[,ling.size] <- spec.by.num*rockfish$weight.at.age / 
+  sum(spec.by.num*rockfish$weight.at.age)
   }
-}
+
+# Check to see if all columns sum to 1
+colSums(binned.size.spec)
+
+save(binned.size.spec, file = "cleaned_data/binned.size.spec.Rdata")
+
+
