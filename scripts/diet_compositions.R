@@ -81,14 +81,16 @@ plot(df_M$gut.ratio.sebastes.wt, df_M$wt..Total)
 covariance_m = lm(wt..Total ~ gut.ratio.sebastes.wt, data = df_M)
 
 F_diet_data_for_model = df_F %>% 
+  filter(age_useful > 5) %>% 
   dplyr::select(gut.ratio.sebastes.wt, wt..Total)
 M_diet_data_for_model = df_M %>% 
+  filter(age_useful > 5) %>% 
   dplyr::select(gut.ratio.sebastes.wt, wt..Total)
 
 source('PM_dietfraction_method/run.model.R')#prints the parameter estimates for all 8 mixture model parameters, 
 source('PM_dietfraction_method/model.comparison.R')#estimates the prey contribution, c_i, using the mixture model, weighted mean and mean and calculates  error for each estimate
 
-run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2]) # 0.185
+run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2]) # 0.135
 model.comparison(F_diet_data_for_model[,1],F_diet_data_for_model[,2],mat=T)
 
 run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2]) # 0.165
