@@ -25,6 +25,7 @@ tl.to.sl.slope <- 0.826
 R_Linf = 63.9
 rockfish.sl <- rockfish$length.at.age * tl.to.sl.slope + tl.to.sl.int # Why the conversion? In terms of nutrition?
 rockfish.Linf.sl <- R_Linf * tl.to.sl.slope + tl.to.sl.int
+  # rockfish bins are in standard length
 rockfish.bins <- c(rockfish.sl[1] - (rockfish.sl[2]-rockfish.sl[1])/2, 
                     # beginning of 1st size bin is 
                     # mean length at age 1 - (growth from age 1 to age 2)/2
@@ -47,13 +48,31 @@ for(ling.size in 1:length(lingcod$length.at.age)) {
   gamma.cdf[1:(length(gamma.cdf)-1)] 
   spec.by.num <- unnorm.spec/sum(unnorm.spec)
   # Convert size spectrum by number into size spectrum by mass!
-  binned.size.spec[,ling.size] <- spec.by.num*rockfish$weight.at.age / 
-  sum(spec.by.num*rockfish$weight.at.age)
+  binned.size.spec[,ling.size] <- spec.by.num # *rockfish$weight.at.age / sum(spec.by.num*rockfish$weight.at.age)
   }
 
 # Check to see if all columns sum to 1
 colSums(binned.size.spec)
 
 save(binned.size.spec, file = "cleaned_data/binned.size.spec.Rdata")
+
+
+# size spectra graph
+size.spec.graph = matrix(data = NA, nrow = rockfish$nage, ncol = 100)
+for(ling.size in 20:120) {
+  # calculate area of gamma distribution/diet spectrum within each prey size bin
+  gamma.cdf <- pgamma(rockfish.bins, shape=size.spec.al, 
+                      scale=size.spec.be*ling.size) 
+  unnorm.spec <- gamma.cdf[2:length(gamma.cdf)] - 
+    gamma.cdf[1:(length(gamma.cdf)-1)] 
+  spec.by.num <- unnorm.spec/sum(unnorm.spec)
+  # Convert size spectrum by number into size spectrum by mass!
+  size.spec.graph[,(ling.size-20)] <- spec.by.num*rockfish$weight.at.age / 
+    sum(spec.by.num*rockfish$weight.at.age)
+}
+
+
+
+
 
 
