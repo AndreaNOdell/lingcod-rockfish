@@ -11,7 +11,7 @@ load("cleaned_data/rockfish_parms.Rdata")
 predprey_int = function(t, n, parms) {
   with(as.list(parms), { # extract parameters from parms vector
     dn = rep(0, length(n)) # initialize dn/dt vector
-    dn = -(M + bycatch*selectivity*fish.mort) * n # continuous dynamics
+    dn = ( -(M + bycatch*selectivity*fish.mort) * n ) - c(rep(0, 40), rowSums( (t(t(a_ij) %*% diag(n[41:105])) %*% diag(n[1:40])) / ((1 + handling * colSums(t(t(a_ij) %*% diag(n[41:105]))))[col(a_ij)]))) # continuous dynamics
     return(list(dn)) # return dn/dt as a list
   })
 }
@@ -19,27 +19,37 @@ predprey_int = function(t, n, parms) {
 
 # model ------------------------------------------------------------------------
 
-# Parameters for lsoda
-fish.mort = 0.1
-M = unname(c(with(lingcod, c(rep(nat.mort["female"],nage), # Lingcod female natural mortality
-                             rep(nat.mort["male"],nage))), # Lingcod male natural mortality
-              with(rockfish, rep(nat.mort,nage))))         # Rockfish natural mortality
-bycatch = unname(c(with(lingcod, c(rep(0,nage), # Lingcod female bycatch
-                                   rep(0,nage))), # Lingcod male bycatch
-                   with(rockfish, rep(0.2,nage)))) # rockfish bycatch
-selectivity = c(with(lingcod, rep(selectivity, length(nat.mort))), # Lingcod female fishing selectivity
-                       with(rockfish, selectivity)) # rockfish fishing selectivity
-parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity)
-
-
 # Parameters for recruitment 
   # Calculate phi and create vector
     phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))
     phi.r = with(rockfish, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE))
   # Create weight and maturity at age vectors
-    weight.at.age = c(with(lingcod, c(weight.at.age[1,], weight.at.age[2,])), with(rockfish, weight.at.age))
-    mat.at.age = c(with(lingcod, c(mat.at.age[1,], mat.at.age[2,])), with(rockfish, mat.at.age))
+    weight.at.age = c(lingcod$weight.at.age, rockfish$weight.at.age)
+    mat.at.age = c(lingcod$mat.at.age, rockfish$mat.at.age)
     
+# Consumption
+load("cleaned_data/binned.size.spec.Rdata") # Load in rockfish size-spectra in size-specific lingod diet
+# binned.size.spec[65,] <- 0
+diet.frac.rockfish <- c(rep(0, 4), rep(0.03, (lingcod$nage-4)), rep(0, 4), rep(0.03, (lingcod$nage-4)))
+handling <- 0.01
+a_ij = binned.size.spec %*% diag(diet.frac.rockfish)
+# rowSums((a_ij * n0[41:105] * n0[1:40])/(1 + handling * rowSums(a_ij) * n0[41:105]))
+
+consumption <- c(rep(0, 40), rowSums((t(t(a_ij) %*% diag(n[41:105])) %*% diag(n[1:40])) / ((1 + handling * colSums(t(t(a_ij) %*% diag(n[41:105]))))[col(a_ij)])))
+
+
+# Parameters for lsoda
+fish.mort = 0.1
+M = unname(c(with(lingcod, c(rep(nat.mort["female"],nage), # Lingcod female natural mortality
+                             rep(nat.mort["male"],nage))), # Lingcod male natural mortality
+             with(rockfish, rep(nat.mort,nage))))         # Rockfish natural mortality
+bycatch = unname(c(with(lingcod, c(rep(1,nage), # Lingcod female bycatch
+                                   rep(1,nage))), # Lingcod male bycatch
+                   with(rockfish, rep(0.1,nage)))) # rockfish bycatch
+selectivity = c(with(lingcod, rep(selectivity, length(nat.mort))), # Lingcod female fishing selectivity
+                with(rockfish, selectivity)) # rockfish fishing selectivity
+parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity, handling = handling, a_ij = a_ij)
+
 
 
 # Now for model-building
@@ -51,7 +61,7 @@ names(n0) = n_name # add names to the initial population sizes
 
 # Create empty matrix to fill in individuals per age (row) through time (column)
 # The rows of our matrix will have LF_1-LF20, LM1-LM20, R_1-R_65. columns will be each time step
-tf = 100 # run for 100 time steps
+tf = 200 # run for 100 time steps
 nmat = matrix(NA, nrow = length(n0), ncol = tf) # generate empty matrix to fill in with projections
 rownames(nmat) = n_name # add names
 nmat[,1] = n0 # add initial abundance to time step 1
@@ -62,8 +72,8 @@ for(t in 2:tf) {
   # Calculate recruitment based on previous time step
     # Caclulate spawning biomass
       SB = nmat[,t-1] * weight.at.age * mat.at.age
-      nmat[1,t] = with(lingcod, BevHolt(phi.l[1], h, r0, sum(0.5*(SB[1:nage])))) # Lingcod Female Recruitment
-      nmat[with(lingcod, (nage+1)), t] = with(lingcod, BevHolt(phi.l[2], h, r0, sum(0.5*(SB[(nage+1):(2*nage)])))) # Lingcod Male Recruitment
+      nmat[1,t] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum((SB[1:nage]))))/2) # Lingcod Female Recruitment
+      nmat[with(lingcod, (nage+1)), t] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum((SB[1:nage]))))/2) # Lingcod Male Recruitment
       nmat[with(lingcod, (2*nage+1)), t] = with(rockfish, BevHolt(phi.r, h, r0, sum(SB[with(lingcod, (2*nage+1)):nrow(nmat)]))) # Rockfish Recruitment
   
   # Numerically integrate abundance after one time step
