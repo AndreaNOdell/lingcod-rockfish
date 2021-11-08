@@ -53,7 +53,7 @@ length.at.age = c(calc_lengthxage(Linf["female"], k["female"], age), calc_length
 names(length.at.age) = c(paste0("LF_", age), paste0("LM_", age))
 
 # Calculate length at age into matrix
-weight.at.age = calc_weightxlength(length.at.age, a, b) # weight in kg
+weight.at.age = c(calc_weightxlength(length.at.age[1:20], a["female"], b["female"]), calc_weightxlength(length.at.age[21:40], a["male"], b["male"])) # weight in kg
 
 # My own estimated vector of maturity for each age class and sex
     #mat.at.age = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
