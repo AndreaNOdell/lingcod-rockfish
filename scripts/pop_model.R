@@ -106,7 +106,7 @@ get_popn = function(rockfish, lingcod, weight.at.age, mat.at.age, age, selectivi
 # Simulations
   for(n in 1:nsims) {
   
-    #create a matrix of correlated and autocorrelated time series for two populations
+    #create a matrix of correlated and autoregressive time series for two populations
     corr_eps = sim_correlated_ar_ts(corr, autocorr, cv, mn, tf, npops, ind_pops = NULL)  
   
 # lingcod 
