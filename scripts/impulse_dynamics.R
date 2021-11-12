@@ -21,58 +21,55 @@ predprey_int = function(t, n, parms) {
 
 # Parameters for recruitment 
   # Calculate phi and create vector
-    phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))[1]
-    phi.r = with(rockfish, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE))
+    # phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))[1]
+    # phi.r = with(rockfish, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE))
   # Create weight and maturity at age vectors
-    weight.at.age = c(lingcod$weight.at.age, rockfish$weight.at.age)
-    mat.at.age = c(lingcod$mat.at.age, rockfish$mat.at.age)
+    # weight.at.age = c(lingcod$weight.at.age, rockfish$weight.at.age)
+    # mat.at.age = c(lingcod$mat.at.age, rockfish$mat.at.age)
     
 # Consumption
-load("cleaned_data/binned.size.spec.Rdata") # Load in rockfish size-spectra in size-specific lingod diet
-diet.frac.rockfish <- c(rep(0, 4), rep(0.001, (lingcod$nage-4)), rep(0, 4), rep(0.001, (lingcod$nage-4)))
-handling <- 0.01
-a_ij = binned.size.spec %*% diag(diet.frac.rockfish)
+# load("cleaned_data/binned.size.spec.Rdata") # Load in rockfish size-spectra in size-specific lingod diet
+# diet.frac.rockfish <- c(rep(0, 4), rep(0.001, (lingcod$nage-4)), rep(0, 4), rep(0.001, (lingcod$nage-4)))
+# # handling <- 0.01
+# a_ij = binned.size.spec %*% diag(diet.frac.rockfish)
 # rowSums((a_ij * n0[41:105] * n0[1:40])/(1 + handling * rowSums(a_ij) * n0[41:105]))
 
 # consumption <- c(rep(0, 40), rowSums((t(t(a_ij) %*% diag(n[41:105])) %*% diag(n[1:40])) / ((1 + handling * colSums(t(t(a_ij) %*% diag(n[41:105]))))[col(a_ij)])))
 
 
 # Parameters for lsoda
-fish.mort = 0.1
-M = unname(c(with(lingcod, c(rep(nat.mort["female"],nage), # Lingcod female natural mortality
-                             rep(nat.mort["male"],nage))), # Lingcod male natural mortality
-             with(rockfish, rep(nat.mort,nage))))         # Rockfish natural mortality
-bycatch = unname(c(with(lingcod, c(rep(1,nage), # Lingcod female bycatch
-                                   rep(1,nage))), # Lingcod male bycatch
-                   with(rockfish, rep(0.1,nage)))) # rockfish bycatch
-selectivity = c(with(lingcod, rep(selectivity, length(nat.mort))), # Lingcod female fishing selectivity
-                with(rockfish, selectivity)) # rockfish fishing selectivity
-parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity, handling = handling, a_ij = a_ij)
+# fish.mort = 0.1
+# M = unname(c(with(lingcod, c(rep(nat.mort["female"],nage), # Lingcod female natural mortality
+#                              rep(nat.mort["male"],nage))), # Lingcod male natural mortality
+#              with(rockfish, rep(nat.mort,nage))))         # Rockfish natural mortality
+# bycatch = unname(c(with(lingcod, c(rep(1,nage), # Lingcod female bycatch
+#                                    rep(1,nage))), # Lingcod male bycatch
+#                    with(rockfish, rep(0.1,nage)))) # rockfish bycatch
+# selectivity = c(with(lingcod, rep(selectivity, length(nat.mort))), # Lingcod female fishing selectivity
+#                 with(rockfish, selectivity)) # rockfish fishing selectivity
+# parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity, handling = handling, a_ij = a_ij)
 
 
 
 # Now for model-building
-times = 1:2 # we only want to run the lsoda for one time step because we're going to pulse recruitment and age
-n_name <- c(with(lingcod,c(paste0("LF_", age), paste0("LM_", age))),
-           with(rockfish, paste0("R_", age))) # add names for the matrix to signify what is lingcod and rockfish
-n0 = c(n = c(rep(10, 2*lingcod$nage), rep(20, rockfish$nage))) # vector of initial abundances 
-names(n0) = n_name # add names to the initial population sizes
+# times = 1:2 # we only want to run the lsoda for one time step because we're going to pulse recruitment and age
+# n_name <- c(with(lingcod,c(paste0("LF_", age), paste0("LM_", age))),
+#            with(rockfish, paste0("R_", age))) # add names for the matrix to signify what is lingcod and rockfish
+# n0 = c(n = c(rep(10, 2*lingcod$nage), rep(20, rockfish$nage))) # vector of initial abundances 
+# names(n0) = n_name # add names to the initial population sizes
 
 # Create empty matrix to fill in individuals per age (row) through time (column)
 # The rows of our matrix will have LF_1-LF20, LM1-LM20, R_1-R_65. columns will be each time step
-tf = 200 # run for 100 time steps
-nmat = matrix(NA, nrow = length(n0), ncol = tf) # generate empty matrix to fill in with projections
-rownames(nmat) = n_name # add names
-nmat[,1] = n0 # add initial abundance to time step 1
+# tf = 200 # run for 100 time steps
+# nmat = matrix(NA, nrow = length(n0), ncol = tf) # generate empty matrix to fill in with projections
+# rownames(nmat) = n_name # add names
+# nmat[,1] = n0 # add initial abundance to time step 1
 cv = 0.6
-mn = 0.5*cv^2
-
-nsim = 1
+# mn = 0.5*cv^2
 
 # Create empty matrix
 
-
-get_pop_n = function(rockfish, lingcod, nsim, corr, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
+get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
                      tf = 200, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
                      stochastic = TRUE) {
   # Create empty matrix
@@ -106,7 +103,7 @@ get_pop_n = function(rockfish, lingcod, nsim, corr, autocorr = c(0.23,0.23), cv 
      corr_eps = matrix(1, nrow = tf, ncol = 2) 
    }
       nmat_sims[,,i] = NA
-      n0 = c(n = c(rep(10, 2*lingcod$nage), rep(20, rockfish$nage))) # vector of initial abundances  
+      n0 = c(n = c(rep(init.l, 2*lingcod$nage), rep(init.r, rockfish$nage))) # vector of initial abundances  
       nmat_sims[,1,i] = n0
     
    for(t in 2:tf) {
@@ -134,24 +131,41 @@ get_pop_n = function(rockfish, lingcod, nsim, corr, autocorr = c(0.23,0.23), cv 
       lingcod_tot[i,] = colSums(nmat_sims[1:with(lingcod, 2*nage),,i])
       rockfish_tot[i,] = colSums(nmat_sims[with(lingcod, (2*nage+1)):nrow(nmat_sims),,i])
   }  
-  output = list(lingcod_tot, rockfish_tot, nmat_sims)
-  names(output) = c("lingcod_pop", "rockfish_pop", "total")
+  output = list(lingcod_tot, rockfish_tot)
+  names(output) = c("lingcod_pop", "rockfish_pop")
   list2env(output, envir = .GlobalEnv)
 }
 
+# run model
+get_pop_n(rockfish, lingcod, nsim = 1, init.l = 10, init.r = 20, corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
+          tf = 300, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
+          stochastic = FALSE)
 
-plot(1:200, lingcod_pop, type = "l")
-plot(1:200, rockfish_pop, type = "l")
+# plot results
+plot(1:300, lingcod_pop, type = "l")
+plot(1:300, rockfish_pop, type = "l")
 
 matplot(t(rockfish_pop), type = "l", xlab = "Years", ylab = "Abundance", main = "Rockfish") 
 matplot(t(lingcod_pop), type = "l", xlab = "Years", ylab = "Abundance", main = "Lingcod")
 
 
 
+# Let's Check alternative stable states ----------------------------------------------------
+init.r = seq(10, 70, by = 10)
+init.l = seq(10, 70, by = 10)
+init.vals = expand.grid(init.l, init.r)
 
-# run model
-get_pop_n(rockfish, lingcod, nsim = 1, corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
-          tf = 200, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.05, times = 1:2, stochastic = FALSE)
+# empty matrix
+alt.states.check = matrix(NA, nrow(init.vals), 2)
 
-
+# run the model with unique combinations of initial starting values
+for (r in 1:nrow(init.vals)) {
+  get_pop_n(rockfish, lingcod, nsim = 1, init.l = init.vals[r,1], init.r = init.vals[r,2], corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
+            tf = 300, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
+            stochastic = FALSE)
+  alt.states.check[r,1] = lingcod_pop[1,300]
+  alt.states.check[r,2] = rockfish_pop[1,300]
+}
+# create dataframe
+alt.states.check = cbind(init.vals, alt.states.check)
 
