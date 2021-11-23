@@ -9,10 +9,13 @@ load("cleaned_data/rockfish_parms.Rdata")
 # numerical estimation of continuous model between time step t and t+1
 # The output will be the number of individuals just before the next time step
 predprey_int = function(t, n, parms) {
+  parms$fish.mort <- parms$fish.mort[parms$time]
+  parms$bycatch <- parms$bycatch[,parms$time]
   with(as.list(parms), { # extract parameters from parms vector
     dn = rep(0, length(n)) # initialize dn/dt vector
     dn = ( -(M + bycatch*selectivity*fish.mort) * n ) - c(rep(0, 40), rowSums( (t(t(a_ij) %*% diag(n[41:105])) %*% diag(n[1:40])) / ((1 + handling * colSums(t(t(a_ij) %*% diag(n[41:105]))))[col(a_ij)]))) # continuous dynamics
-    return(list(dn)) # return dn/dt as a list
+    df = sum((bycatch[1:40]*selectivity[1:40]*fish.mort) * n[1:40]) # calculate fishery yield
+    return(list(dn, df)) # return dn/dt and df/dt as a list
   })
 }
 
@@ -70,7 +73,7 @@ cv = 0.6
 # Create empty matrix
 
 get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
-                     tf = 200, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
+                     tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, f = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
                      stochastic = TRUE) {
   # Create empty matrix
   nmat_sims = array(NA, dim = c(2*lingcod$nage+rockfish$nage, tf, nsim), 
@@ -78,6 +81,7 @@ get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c
                                   year=NULL, 
                                   simulation=NULL))
   lingcod_tot = rockfish_tot = matrix(NA, nrow = nsim, ncol = tf)
+  fishery_yield_sims = matrix(NA, nrow = nsim, ncol = tf)
   
   # Calculate phi and create vector
   phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))[1]
@@ -89,12 +93,18 @@ get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c
   M = unname(c(with(lingcod, c(rep(nat.mort["female"],nage), # Lingcod female natural mortality
                                rep(nat.mort["male"],nage))), # Lingcod male natural mortality
                with(rockfish, rep(nat.mort,nage))))         # Rockfish natural mortality
-  bycatch = unname(c(with(lingcod, c(rep(1,nage), # Lingcod female bycatch
+  post.mpa.bycatch = matrix(rep(unname(c(with(lingcod, c(rep(1,nage), # Lingcod female bycatch
                                      rep(1,nage))), # Lingcod male bycatch
-                     with(rockfish, rep(b,nage)))) # rockfish bycatch
+                     with(rockfish, rep(b,nage)))), (tf-150)), nrow = 2*lingcod$nage+rockfish$nage) # rockfish bycatch 
+  pre.mpa.bycatch = matrix(rep(unname(c(with(lingcod, c(rep(1,nage), # Lingcod female bycatch
+                                                        rep(1,nage))), # Lingcod male bycatch
+                                        with(rockfish, rep(hist.by ,nage)))), (150)), nrow = 2*lingcod$nage+rockfish$nage) # rockfish bycatch
+  bycatch = cbind(pre.mpa.bycatch, post.mpa.bycatch)
   selectivity = c(with(lingcod, rep(selectivity, length(nat.mort))), # Lingcod female fishing selectivity
                   with(rockfish, selectivity)) # rockfish fishing selectivity
+  fish.mort = c(rep(hist.f, 150), rep(0, mpa.yr), rep(f, (tf-(150+mpa.yr))))
   parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity, handling = handling, a_ij = a_ij)
+  id = 1:tf
   
   for(i in 1:nsim) {
    if(stochastic) { # for stochastic recruitment. multiply by autoregressive lognormally distributed deviations
@@ -115,7 +125,10 @@ get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c
           nmat_sims[with(lingcod, (2*nage+1)), t, i] = with(rockfish, BevHolt(phi.r, h, r0, sum(SB[with(lingcod, (2*nage+1)):nrow(nmat_sims)]))*corr_eps[t,2]) # Rockfish Recruitment
       
       # Numerically integrate abundance after one time step
+        parms$time = id[t-1]
         out = as.matrix(lsoda(n0, times, predprey_int, parms))
+        parms$fish.mort = c(rep(hist.f, 150), rep(0, mpa.yr), rep(f, (tf-(150+mpa.yr))))
+        parms$bycatch = cbind(pre.mpa.bycatch, post.mpa.bycatch)
       
       # now move age classes up one step
         nmat_sims[2:with(lingcod, nage-1), t, i] = out[2, 2:with(lingcod, nage-1)] # Female lingcod
@@ -125,47 +138,32 @@ get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c
         nmat_sims[with(lingcod, (2*nage+2)):(nrow(nmat_sims)-1), t, i] = out[2, with(lingcod, (2*nage+2)):(nrow(nmat_sims)-1)] # Rockfish age increase
         nmat_sims[nrow(nmat_sims), t, i] = out[2, (nrow(nmat_sims))] + out[2,(nrow(nmat_sims)+1)] #rockfish plus group
       
+      # Add fishery yield into fishery yield matrix
+        fishery_yield_sims[i, (t-1)] = out[1, ncol(out)]
+        
       # Now set the vector of abundances as the new n0 for next lsoda run
         n0 = nmat_sims[,t,i]
    }
+    # Now take the total lingcod and rockfish abundances each year (collapse structure)
       lingcod_tot[i,] = colSums(nmat_sims[1:with(lingcod, 2*nage),,i])
       rockfish_tot[i,] = colSums(nmat_sims[with(lingcod, (2*nage+1)):nrow(nmat_sims),,i])
   }  
-  output = list(lingcod_tot, rockfish_tot)
-  names(output) = c("lingcod_pop", "rockfish_pop")
+  output = list(lingcod_tot, rockfish_tot, fishery_yield_sims)
+  names(output) = c("lingcod_pop", "rockfish_pop", "fishery_yields")
   list2env(output, envir = .GlobalEnv)
 }
 
 # run model
-get_pop_n(rockfish, lingcod, nsim = 1, init.l = 10, init.r = 20, corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
-          tf = 300, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
-          stochastic = FALSE)
-
+#get_pop_n(rockfish, lingcod, nsim = 1, init.l = 10, init.r = 20, corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
+#          tf = 330, f = 0.1, b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, 
+#          stochastic = FALSE)
+# 
 # plot results
-plot(1:300, lingcod_pop, type = "l")
-plot(1:300, rockfish_pop, type = "l")
+# plot(1:470, lingcod_pop, type = "l")
+# plot(1:470, rockfish_pop, type = "l")
+# 
+# matplot(t(rockfish_pop), type = "l", xlab = "Years", ylab = "Abundance", main = "Rockfish") 
+# matplot(t(lingcod_pop), type = "l", xlab = "Years", ylab = "Abundance", main = "Lingcod")
 
-matplot(t(rockfish_pop), type = "l", xlab = "Years", ylab = "Abundance", main = "Rockfish") 
-matplot(t(lingcod_pop), type = "l", xlab = "Years", ylab = "Abundance", main = "Lingcod")
 
-
-
-# Let's Check alternative stable states ----------------------------------------------------
-init.r = seq(10, 70, by = 10)
-init.l = seq(10, 70, by = 10)
-init.vals = expand.grid(init.l, init.r)
-
-# empty matrix
-alt.states.check = matrix(NA, nrow(init.vals), 2)
-
-# run the model with unique combinations of initial starting values
-for (r in 1:nrow(init.vals)) {
-  get_pop_n(rockfish, lingcod, nsim = 1, init.l = init.vals[r,1], init.r = init.vals[r,2], corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6, mn = 0.5*cv^2, 
-            tf = 300, fish.mort = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
-            stochastic = FALSE)
-  alt.states.check[r,1] = lingcod_pop[1,300]
-  alt.states.check[r,2] = rockfish_pop[1,300]
-}
-# create dataframe
-alt.states.check = cbind(init.vals, alt.states.check)
 
