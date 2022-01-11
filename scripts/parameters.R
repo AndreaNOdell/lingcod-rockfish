@@ -17,9 +17,15 @@ length.at.age = calc_lengthxage(Linf, k, age)
 # Calculate weight at age using length.at.age vector
 weight.at.age = calc_weightxlength(length.at.age, a, b) # weight in kg
 # My own estimated vector of maturity for each age class
-mat.at.age = c(rep(0, 14), 0.1, 0.2, 0.27, 0.33, 0.4, 0.47, 0.53, 0.6,  0.67, 0.73, 0.8, 0.87, 
-               0.9, rep(1, 38))
+mat.param <- c(-0.437, 38.78)
+names(mat.param) <- c('slope', 'len.at.50')
+mat.at.age <- sapply(length.at.age, function(l, par) 1/(1+exp(par[1]*l-par[1]*par[2])), par=mat.param)
 
+# Determine selectivity - 22" i.e. 56cm
+min.vulnerable.length = 25
+selectivity = length.at.age
+selectivity[selectivity<min.vulnerable.length] = 0
+selectivity[selectivity>min.vulnerable.length] = 1
 
 rockfish = list(length.at.age = length.at.age, # vector of length at age
                 weight.at.age = weight.at.age, # vector of weight at age
@@ -28,39 +34,40 @@ rockfish = list(length.at.age = length.at.age, # vector of length at age
                 h = 0.718, # Steepness
                 age = age, # age classes
                 nage = length(age), # of age classes
-                r0 = 220,
-                selectivity = c(rep(0, 3), rep(1, 62))) # recruitment at unfished biomass
+                r0 = 220, # recruitment at unfished biomass
+                selectivity = selectivity) 
 save(rockfish, file = "cleaned_data/rockfish_parms.Rdata")
 
 
 # Lingcod Parameters ----------------------------------------------------------
 # From 2017 stock assessment
 age = 1:20 # age classes
-# Weight calculation
+# Length/weight parameters
 Linf = c(100.9, 86.3) # Linf values for lingcod (south) from stock assessment
 k = c(0.191, 0.214) # growth rate coefficient for lingcod (south) from stock assessment
 a = c(3.308*10^-6, 2.179*10^-6) # allometric scaling parameter
 b = c(3.248, 3.36) # allometric scaling parameter
 names(Linf) = names(k) = names(a) = names(b) = c("female", "male")
 
-# Calculate length at age into matrix
-  # length.at.age = matrix(NA, nrow = length(Linf), ncol = length(age))
-  # rownames(length.at.age) = c("female", "male")
-  # for(i in c("female","male")) {
-  #   length.at.age[i,] = calc_lengthxage(Linf[i], k[i], age)
-  # }
+# Calculate length at age
 length.at.age = c(calc_lengthxage(Linf["female"], k["female"], age), calc_lengthxage(Linf["male"], k["male"], age))
 names(length.at.age) = c(paste0("LF_", age), paste0("LM_", age))
-
-# Calculate length at age into matrix
+# Calculate weight at age into matrix
 weight.at.age = c(calc_weightxlength(length.at.age[1:20], a["female"], b["female"]), calc_weightxlength(length.at.age[21:40], a["male"], b["male"])) # weight in kg
 
-# My own estimated vector of maturity for each age class and sex
-    #mat.at.age = rbind(c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)),
-    #                   c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14)))
-    #rownames(mat.at.age) = c("female", "male")
-mat.at.age <- c(0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14), 0, 0, 0.1, 0.4, 0.75, 0.97, rep(1, 14))
+# Caclulate maturity at age
+alpha <- c(.994, 1.06); beta <- c(4.323, 2.506)
+names(alpha) <- names(beta) <- c('female', 'male')
+mat.at.age <- sapply(age, function(x) 1/(1+exp(-alpha*(x-beta))))
+mat.at.age = c(mat.at.age[1,], mat.at.age[2,])
 names(mat.at.age) = c(paste0("LF_", age), paste0("LM_", age))
+
+# Determine selectivity - 22" i.e. 56cm
+min.vulnerable.length = 56
+selectivity = length.at.age
+selectivity[selectivity<min.vulnerable.length] = 0
+selectivity[selectivity>min.vulnerable.length] = 1
+  
     
 lingcod = list(length.at.age = length.at.age, # vector of length at age
                weight.at.age = weight.at.age, # vector of weight at age
@@ -70,7 +77,7 @@ lingcod = list(length.at.age = length.at.age, # vector of length at age
                age = age, #age classes
                nage = length(age), # of age classes
                r0 = 4848,  # recruitment at unfished biomass
-               selectivity = c(rep(0, 4), rep(1, 16)))
+               selectivity = selectivity)
 names(lingcod$nat.mort) = c("female", "male") 
 save(lingcod, file = "cleaned_data/lingcod_parms.Rdata")
 
