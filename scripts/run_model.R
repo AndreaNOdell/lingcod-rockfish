@@ -8,15 +8,25 @@ source("scripts/impulse_dynamics.R") # load in population dynamic function
 # Key parameters to adjust
 burn.in = 150
 mpa.yr = 20
-tf = burn.in+mpa.yr+300
+tf = burn.in+mpa.yr+400
 cv = 0.6
-simulations = 5
+simulations = 10
 
 load.Rdata( filename="cleaned_data/binned.size.spec.Rdata", "binned.size.spec.29" ) # Load in rockfish size-spectra in size-specific lingod diet
 diet.frac.rockfish <- c(rep(0, 4), rep(0.135*0.001, (lingcod$nage-4)), rep(0, 4), rep(0.165*0.001, (lingcod$nage-4)))
 a_ij.29 = binned.size.spec.29 %*% diag(diet.frac.rockfish) # with interaction
 a_ij.0 = binned.size.spec.29 * 0 # without interaction
 
+# Calculate rockfish equilibrium without fishing (but with species interaction)
+get_pop_n(rockfish, lingcod, nsim = 1, init.l = 200, init.r = 70, corr = -0.8, autocorr = c(0.23,0.23), cv = log(cv), mn = log(1 - (0.5*cv^2)), 
+          tf = tf, mpa.yr = mpa.yr, hist.f = 0.5, hist.by = 0.5, f = 0, b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, 
+          stochastic = FALSE, biomass = TRUE) 
+rock_N_equilibrium = rockfish_pop[1, length(rockfish_pop)]
+ling_N_equilibrium = lingcod_pop[1, length(lingcod_pop)]
+
+rock_B_equilibrium = rockfish_pop_B[1, length(rockfish_pop_B)]
+ling_B_equilibrium = lingcod_pop_B[1, length(lingcod_pop_B)]
+  
 # Check alternative stable states ----------------------------------------------------
 init.r = seq(30, 90, length.out = 7)
 init.l = seq(200, 800, length.out = 7)
@@ -95,53 +105,95 @@ dev.off()
 # varying consumption of rockfish (since their consumption of rockfish only affects rockfish abundance)
 
 
-# Run deterministic model with varying post-MPA fishing pressure ------------------------------------
+# Run deterministic model with varying post-closure lingcod fishing pressure ------------------------------------
 fishing_trials = seq(0, 0.5, by = 0.1)
-vary_fishing_rock_det = matrix(NA, nrow = tf, ncol = length(fishing_trials))
-vary_fishing_ling_det = matrix(NA, nrow = tf, ncol = length(fishing_trials))
+vary_fishing_rock_det_N = matrix(NA, nrow = tf, ncol = length(fishing_trials))
+vary_fishing_ling_det_N = matrix(NA, nrow = tf, ncol = length(fishing_trials))
+vary_fishing_rock_det_B = matrix(NA, nrow = tf, ncol = length(fishing_trials))
+vary_fishing_ling_det_B = matrix(NA, nrow = tf, ncol = length(fishing_trials))
 
 for (f in 1:length(fishing_trials)) {
   get_pop_n(rockfish, lingcod, nsim = 1, init.l = 200, init.r = 70, corr = 0.8, autocorr = c(0.23,0.23), cv =log(0.6), mn = log(1-(0.5*cv^2)), 
-            tf = tf, mpa.yr = mpa.yr, hist.f = 0.5, hist.by = 0.5, f = fishing_trials[f], b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, 
-            stochastic = FALSE)
-  vary_fishing_rock_det[,f] = rockfish_pop
-  vary_fishing_ling_det[,f] = lingcod_pop
+            tf = tf, mpa.yr = mpa.yr, hist.f = 0.5, hist.by = 1, f = fishing_trials[f], b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, 
+            stochastic = FALSE, biomass = TRUE)
+  vary_fishing_rock_det_N[,f] = rockfish_pop/rock_N_equilibrium
+  vary_fishing_ling_det_N[,f] = lingcod_pop/ling_N_equilibrium
+  vary_fishing_rock_det_B[,f] = rockfish_pop_B/rock_B_equilibrium
+  vary_fishing_ling_det_B[,f] = lingcod_pop_B/ling_B_equilibrium
 }
 
-vary_fishing_rock_det_long = as.data.frame(vary_fishing_rock_det) %>% 
+# Abundance
+vary_fishing_rock_det_N_long = as.data.frame(vary_fishing_rock_det_N) %>% 
   set_colnames(c("0", "0.1", "0.2", "0.3", "0.4", "0.5")) %>% 
   mutate(time = 1:tf) %>% 
-  pivot_longer(!time, names_to = "Fishing.Pressure", values_to = "Abundance")
-
-vary_fishing_ling_det_long = as.data.frame(vary_fishing_ling_det) %>% 
+  pivot_longer(!time, names_to = "Fishing.Pressure", values_to = "Nt_Neq")
+vary_fishing_ling_det_N_long = as.data.frame(vary_fishing_ling_det_N) %>% 
   set_colnames(c("0", "0.1", "0.2", "0.3", "0.4", "0.5")) %>% 
   mutate(time = 1:tf) %>% 
-  pivot_longer(!time, names_to = "Fishing.Pressure", values_to = "Abundance")
+  pivot_longer(!time, names_to = "Fishing.Pressure", values_to = "Nt_Neq")
+# Biomass
+vary_fishing_rock_det_B_long = as.data.frame(vary_fishing_rock_det_B) %>% 
+  set_colnames(c("0", "0.1", "0.2", "0.3", "0.4", "0.5")) %>% 
+  mutate(time = 1:tf) %>% 
+  pivot_longer(!time, names_to = "Fishing.Pressure", values_to = "Bt_Beq")
+vary_fishing_ling_det_B_long = as.data.frame(vary_fishing_ling_det_B) %>% 
+  set_colnames(c("0", "0.1", "0.2", "0.3", "0.4", "0.5")) %>% 
+  mutate(time = 1:tf) %>% 
+  pivot_longer(!time, names_to = "Fishing.Pressure", values_to = "Bt_Beq")
 
 # Plot
-jpeg('plots/det.vary.fishing.rockf.jpg')
-ggplot(vary_fishing_rock_det_long, aes(x=time, y = Abundance, color = Fishing.Pressure)) + 
+# rockfish
+jpeg('plots/det.vary.fishing.rockf.N.jpg')
+ggplot(vary_fishing_rock_det_N_long, aes(x=time, y = Nt_Neq, color = Fishing.Pressure)) + 
   geom_line() + 
-  geom_point(aes(x = burn.in, y = 2000), size = 0.75) +
-  #geom_point(aes(x = 150+mpa.yr, y = 2000), size = 0.75) +
-  geom_segment(aes(x = burn.in, xend = (burn.in+mpa.yr), y = 2000, yend = 2000)) +
-  labs(y = "Abundance", x = "Years", title = "Rockfish Time-Series", 
+  xlim(c((burn.in-20),tf)) + ylim(c(0,1.5)) +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  labs(y = "Nt/No", x = "Years", title = "Rockfish Time-Series", 
        subtitle = "Varying Fishing Pressure") +
-  #lims(y = c(1500, 3500)) +
+  theme_classic() +
+  theme(legend.position = "right") + 
+  scale_color_viridis(discrete = TRUE, option = "D", direction = -1)
+dev.off()
+  # biomass
+jpeg('plots/det.vary.fishing.rockf.B.jpg')
+ggplot(vary_fishing_rock_det_B_long, aes(x=time, y = Bt_Beq, color = Fishing.Pressure)) + 
+  geom_line() + 
+  xlim(c((burn.in-20),tf)) + ylim(c(0, 1.5)) +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  labs(y = "Bt/Bo", x = "Years", title = "Rockfish Time-Series", 
+       subtitle = "Varying Fishing Pressure") +
   theme_classic() +
   theme(legend.position = "right") + 
   scale_color_viridis(discrete = TRUE, option = "D", direction = -1)
 dev.off()
 
+# The historic fishing pressure seems to affect the long term equilibrium biomass
+
+#lingcod 
 jpeg('plots/det.vary.fishing.ling.jpg')
-ggplot(vary_fishing_ling_det_long, aes(x=time, y = Abundance, color = Fishing.Pressure)) + 
+ggplot(vary_fishing_ling_det_N_long, aes(x=time, y = Nt_Neq, color = Fishing.Pressure)) + 
   geom_line() +
-  labs(y = "Abundance", x = "Years", title = "Lingcod Time-Series", 
+  xlim(c((burn.in-20),tf)) + ylim(c(0,1.1)) +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  labs(y = "Nt/No", x = "Years", title = "Lingcod Time-Series", 
        subtitle = "Varying Fishing Pressure") +
   theme_classic() +
   theme(legend.position = "right") + 
   scale_color_viridis(discrete = TRUE, option = "D", direction = -1)
 dev.off()
+    # Biomass
+jpeg('plots/det.vary.fishing.ling.B.jpg')
+ggplot(vary_fishing_ling_det_B_long, aes(x=time, y = Bt_Beq, color = Fishing.Pressure)) + 
+  geom_line() +
+  xlim(c((burn.in-20),tf)) + ylim(c(0,1.1)) +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  labs(y = "Bt/Bo", x = "Years", title = "Lingcod Time-Series", 
+       subtitle = "Varying Fishing Pressure") +
+  theme_classic() +
+  theme(legend.position = "right") + 
+  scale_color_viridis(discrete = TRUE, option = "D", direction = -1) 
+dev.off()
+  # f = 0.3 generates B40 for lingcod
 
 
 
@@ -288,11 +340,12 @@ vary_fishing_rock_stoch_summary = array(NA, dim = c(tf, 4, length(fishing_trials
 vary_fishing_ling_stoch_summary = array(NA, dim = c(tf, 4, length(fishing_trials)))
 vary_fishing_rock_stock_cv = matrix(NA, nrow = simulations, ncol = length(fishing_trials)) # nrow is number of simulations
 vary_fishing_ling_stock_cv = matrix(NA, nrow = simulations, ncol = length(fishing_trials))# nrow is number of simulations
-fishery_yields_vary_f = array(NA, dim = c(simulations, tf, length(fishing_trials)))
+fishery_yields_N_vary_f = array(NA, dim = c(simulations, tf, length(fishing_trials)))
+fishery_yields_B_vary_f = array(NA, dim = c(simulations, tf, length(fishing_trials)))
 
 for(f in 1:length(fishing_trials)) {
  # Run the function over each fishing pressure scenario 
-  get_pop_n(rockfish, lingcod, nsim = simulations, init.l = 200, init.r = 70, corr = -0.8, autocorr = c(0.23,0.23), cv = log(cv), mn = log(1 - (0.5*cv^2)), 
+  get_pop_n(rockfish, lingcod, nsim = simulations, init.l = 200, init.r = 70, corr = 0.8, autocorr = c(0.23,0.23), cv = log(cv), mn = log(1 - (0.5*cv^2)), 
             tf = tf, mpa.yr = mpa.yr, hist.f = 0.5, hist.by = 0.5, f = fishing_trials[f], b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, 
             stochastic = TRUE)
   # Fill in array with data
@@ -303,7 +356,7 @@ for(f in 1:length(fishing_trials)) {
   vary_fishing_rock_stoch_summary[,c(3,4),f] = t(apply(rockfish_pop, 2, function(x) quantile(x, c(0.1, 0.9))))
   vary_fishing_ling_stoch_summary[,c(3,4),f] = t(apply(lingcod_pop, 2, function(x) quantile(x, c(0.1, 0.9))))
   
- # Toss out the initial 300 years as a burn-in phase
+ # Toss out the initial 250 years as a burn-in phase
   rockfish_pop_subset = rockfish_pop[, -(1:250)]
   lingcod_pop_subset = lingcod_pop[, -(1:250)]
  # Matrix as output - but in the forloop, all we want is the coefficient of variation 
@@ -314,22 +367,27 @@ for(f in 1:length(fishing_trials)) {
   vary_fishing_ling_stock_cv[, f] = apply(lingcod_pop_subset, 1, function(x) sd(x) / mean(x) * 100)
   
   # Add fishery yield data to array
-  fishery_yields_vary_f[,,f] = fishery_yields
+  fishery_yields_N_vary_f[,,f] = fishery_yields_N
+  fishery_yields_B_vary_f[,,f] = fishery_yields_B
 }
 
 colnames(vary_fishing_rock_stoch_summary) = colnames(vary_fishing_ling_stoch_summary) = c("time", "mean", "lower", "upper")
 
 # saving the data - adjust the names to fit the correct run (i.e. whether is positive and negative correlation)
-# vary_fishing_rock_stoch_summary_ncorr = vary_fishing_rock_stoch_summary
-# vary_fishing_ling_stoch_summary_ncorr = vary_fishing_ling_stoch_summary
-# vary_fishing_rock_stock_cv_ncorr = vary_fishing_rock_stock_cv
-# vary_fishing_ling_stock_cv_ncorr = vary_fishing_ling_stock_cv
-# vary_fishing_fishery_yield_ncorr = fishery_yields_vary_f
-# save(vary_fishing_rock_stock_cv_ncorr, file = "cleaned_data/vary_fishing_rock_stock_cv_ncorr.Rdata")  
-# save(vary_fishing_ling_stock_cv_ncorr, file = "cleaned_data/vary_fishing_ling_stock_cv_ncorr.Rdata")   
-# save(vary_fishing_rock_stoch_summary_ncorr, file = "cleaned_data/vary_fishing_rock_stoch_summary_ncorr.Rdata")  
-# save(vary_fishing_ling_stoch_summary_ncorr, file = "cleaned_data/vary_fishing_ling_stoch_summary_ncorr.Rdata")  
-# save(vary_fishing_fishery_yield_ncorr, file = "cleaned_data/vary_fishing_fishery_yield_ncorr")
+# vary_fishing_rock_stoch_summary_pcorr = vary_fishing_rock_stoch_summary
+# vary_fishing_ling_stoch_summary_pcorr = vary_fishing_ling_stoch_summary
+# vary_fishing_rock_stock_cv_pcorr = vary_fishing_rock_stock_cv
+# vary_fishing_ling_stock_cv_pcorr = vary_fishing_ling_stock_cv
+# fishery_yields_N_vary_f_pcorr = fishery_yields_N_vary_f
+# fishery_yields_B_vary_f_pcorr = fishery_yields_B_vary_f
+# save(vary_fishing_rock_stock_cv_pcorr, file = "cleaned_data/vary_fishing_rock_stock_cv_pcorr.Rdata")  
+# save(vary_fishing_ling_stock_cv_pcorr, file = "cleaned_data/vary_fishing_ling_stock_cv_pcorr.Rdata")   
+# save(vary_fishing_rock_stoch_summary_pcorr, file = "cleaned_data/vary_fishing_rock_stoch_summary_pcorr.Rdata")  
+# save(vary_fishing_ling_stoch_summary_pcorr, file = "cleaned_data/vary_fishing_ling_stoch_summary_pcorr.Rdata")  
+# save(fishery_yields_N_vary_f_pcorr, file = "cleaned_data/fishery_yields_N_vary_f_pcorr.Rdata")  
+# save(fishery_yields_B_vary_f_pcorr, file = "cleaned_data/fishery_yields_B_vary_f_pcorr.Rdata")  
+
+
  
 # rockfish
     # CV plots
@@ -388,6 +446,7 @@ ggplot(cv_range, aes(reorder(species, -mean.CV), mean.CV, fill = reorder(correla
   scale_fill_discrete(name = "Correlation")
 dev.off()  
   
+
 
 
 
