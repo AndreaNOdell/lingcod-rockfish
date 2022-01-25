@@ -6,7 +6,7 @@
 plots/*
 raw_data/*
 cleaned_data/*
-*.jpeg
+*.jpeg 
 *.png
 /PM_dietfraction_method
 *.Rmd
