@@ -21,7 +21,7 @@ mat.param <- c(-0.437, 38.78)
 names(mat.param) <- c('slope', 'len.at.50')
 mat.at.age <- sapply(length.at.age, function(l, par) 1/(1+exp(par[1]*l-par[1]*par[2])), par=mat.param)
 
-# Determine selectivity - 22" i.e. 56cm
+# Determine selectivity - 25cm from taylor and wetzel
 min.vulnerable.length = 25
 selectivity = length.at.age
 selectivity[selectivity<min.vulnerable.length] = 0
@@ -62,12 +62,20 @@ mat.at.age <- sapply(age, function(x) 1/(1+exp(-alpha*(x-beta))))
 mat.at.age = c(mat.at.age[1,], mat.at.age[2,])
 names(mat.at.age) = c(paste0("LF_", age), paste0("LM_", age))
 
-# Determine selectivity - 22" i.e. 56cm
+# Determine selectivity - current minimum size limit = 22" i.e. 56cm
 min.vulnerable.length = 56
-selectivity = length.at.age
-selectivity[selectivity<min.vulnerable.length] = 0
-selectivity[selectivity>min.vulnerable.length] = 1
-  
+max.allow.length = 85
+# Minimum size limit
+min.selectivity = length.at.age
+min.selectivity[min.selectivity<min.vulnerable.length] = 0
+min.selectivity[min.selectivity>min.vulnerable.length] = 1
+# harvest slot
+harvest.slot = length.at.age
+harvest.slot[harvest.slot<min.vulnerable.length] = 0 ; harvest.slot[harvest.slot>max.allow.length] = 0
+harvest.slot[harvest.slot>min.vulnerable.length & harvest.slot<max.allow.length] = 1
+# female biased (sex ratio 38% male deeper than 200ft from Fish Bulletin summary of Lingcod Life History)
+#female.biased = length.at.age
+
     
 lingcod = list(length.at.age = length.at.age, # vector of length at age
                weight.at.age = weight.at.age, # vector of weight at age
@@ -77,7 +85,8 @@ lingcod = list(length.at.age = length.at.age, # vector of length at age
                age = age, #age classes
                nage = length(age), # of age classes
                r0 = 4848,  # recruitment at unfished biomass
-               selectivity = selectivity)
+               min.selectivity = min.selectivity,
+               harvest.slot = harvest.slot)
 names(lingcod$nat.mort) = c("female", "male") 
 save(lingcod, file = "cleaned_data/lingcod_parms.Rdata")
 
