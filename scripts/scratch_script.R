@@ -102,15 +102,15 @@ get_pop_det = function(rockfish, lingcod, init.l = 200, init.r = 70, tf = (150+2
     # Collecting and saving the necessary information
     lingcod_SAD = (nmat[1:lingcod$nage,tf] + nmat[(lingcod$nage+1):(2*lingcod$nage), tf])/sum(nmat[1:(2*lingcod$nage),tf]) # Stable age distribution
     rockfish_SAD = nmat[(2*lingcod$nage+1):nrow(nmat),tf]/sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf])
-    lingcod_Beq = sum(nmat[1:(2*lingcod$nage),tf] * lingcod$weight.at.age) # total biomass at equilibrium
-    rockfish_Beq = sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf] * rockfish$weight.at.age)
+    lingcod_SBeq = sum(nmat[1:(lingcod$nage),tf] * lingcod$weight.at.age[1:(lingcod$nage)] * lingcod$mat.at.age[1:(lingcod$nage)]) # total Spawning biomass at equilibrium
+    rockfish_SBeq = sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf] * rockfish$weight.at.age * rockfish$mat.at.age)
     lingcod_oldprop = (nmat[lingcod$nage,tf] + nmat[2*lingcod$nage,tf])/sum(nmat[1:(2*lingcod$nage), tf]) # proportion of pop that are plus age 
     rockfish_oldprop = nmat[nrow(nmat), tf]/sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf])
     yield = rbind(yield_N, yield_B) # total yield 
 
     # Send output to global environment
-    output = list(lingcod_SAD, rockfish_SAD, lingcod_Beq, rockfish_Beq, lingcod_oldprop, rockfish_oldprop, yield)
-    names(output) = c("lingcod_SAD", "rockfish_SAD", "lingcod_Beq", "rockfish_Beq", "lingcod_oldprop", "rockfish_oldprop", "yield")
+    output = list(lingcod_SAD, rockfish_SAD, lingcod_SBeq, rockfish_SBeq, lingcod_oldprop, rockfish_oldprop, yield)
+    names(output) = c("lingcod_SAD", "rockfish_SAD", "lingcod_SBeq", "rockfish_SBeq", "lingcod_oldprop", "rockfish_oldprop", "yield")
     return(output) # sends as list
 }
 
@@ -186,18 +186,11 @@ get_fxb_balance = function(rockfish, lingcod, init.l = 200, init.r = 70, tf = (1
   }
   
   # Collecting and saving the necessary information
-  rock_equil_bio = sum(nmat[(2*lingcod$nage+1):nrow(nmat),(tf-1)] * rockfish$weight.at.age)
+  rock_equil_bio = sum(nmat[(2*lingcod$nage+1):nrow(nmat),(tf-1)] * rockfish$weight.at.age * rockfish$mat.at.age)
   
   # Send output to global environment
   return(rock_equil_bio)
 }
-
-
-
-
-trial = get_fxb_balance(rockfish, lingcod, init.l = 200, init.r = 70, tf = (150+20+300), mpa.yr = 20, 
-  hist.f = 0, hist.by = 0, f = 0, b = 0, a_ij = a_ij.29, handling = 0.01, 
-  times = 1:2, min.selectivity = TRUE)
 
 
 
@@ -212,41 +205,12 @@ a_ij.29 = binned.size.spec.29 %*% diag(diet.frac.rockfish) # with interaction
 harvest.slot.trial = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 70,  tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, 
             f = 0.1, b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, min.selectivity = FALSE)
 
-# Quantify balance between fishing and bycatch rate ---------------------------------------------------
-
-f = seq(0.01,0.3, by = 0.03)
-b = seq(0,0.3, by = 0.01)
-harvest.scenarios = as.data.frame(expand_grid(f,b))
-
-fxb_balance = mapply(get_fxb_balance, f = harvest.scenarios[,1], b = harvest.scenarios[,2], 
-                     MoreArgs = list(rockfish = rockfish, lingcod = lingcod), SIMPLIFY = FALSE)
-
-fxb_balance_df = cbind(harvest.scenarios, round(unlist(fxb_balance))/round(rockfish_unfished_equil))
-names(fxb_balance_df) = c("f", "b", "rockfish_recovery")
-
-fxbplot = fxb_balance_df %>% 
-  filter(rockfish_recovery > 0.98) %>% 
-  filter(rockfish_recovery < 1.02) %>% 
-  ggplot(aes(x = f, y = b)) +
-  geom_point() +
-  theme_classic()
 
 #lapply -- mclapply
 # purrr - perhaps easier but slightly slower map and map2 furrr
 # try with a simple example to start
 # struct analagous to list
 
-##########################
-
-# Unfished equilibrium
-unfished_vals = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 70,  tf = 300, mpa.yr = 20, hist.f = 0, hist.by = 0.5, 
-            f = 0, b = 0, a_ij = a_ij.29, handling = 0.01, times = 1:2, min.selectivity = TRUE) # I checked and 300 yrs long enough
-lingcod_unfished_equil = unfished_vals$lingcod_Beq
-rockfish_unfished_equil = unfished_vals$rockfish_Beq
-lingcod_unfished_oldprop = lingcod_oldprop
-rockfish_unfished_oldprop = rockfish_oldprop
-lingcod_unfished_SAD = lingcod_SAD
-rockfish_unfished_SAD = rockfish_SAD
 
 ##############################
 # struggling with mapply - so here's the forloop version
@@ -345,17 +309,16 @@ grid.arrange(
 # Stochastic --------------------------------------------------------------------------------------
 
 get_pop_stoch = function(rockfish, lingcod, init.l = 200, init.r = 70, nsim = 1, 
-                         corr, autocorr = c(0.23,0.23), cv = log(cv), mn = log(1-0.5*cv^2),
+                         corr, autocorr = c(0.23,0.23), cv = 0.6,
                          tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, 
-                         f, b, a_ij = a_ij, handling = 0.01, times = 1:2, min.selectivity = TRUE) {
+                         f, b, a_ij = a_ij.29, handling = 0.01, times = 1:2, min.selectivity = TRUE) {
   
   # Create empty matrix for data
   nmat_sims = array(NA, dim = c(2*lingcod$nage+rockfish$nage, tf, nsim), 
                     dimnames=list(spc.age=NULL, 
                                   year=NULL, 
                                   simulation=NULL))
-  yield_N = numeric(tf)
-  yield_B = numeric(tf)
+  lingcod_biomass_ts = rockfish_biomass_ts = matrix(NA, nrow = nsim, ncol = tf)
   
   # Calculate phi and create vector
   phi.l = with(lingcod, phi_calc(age, nat.mort, weight.at.age, mat.at.age, lingcod = TRUE))[1]
@@ -388,58 +351,54 @@ get_pop_stoch = function(rockfish, lingcod, init.l = 200, init.r = 70, nsim = 1,
   parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity, handling = handling, a_ij = a_ij, weight = weight.at.age)
   id = 1:tf
   
-  
-  # filling nmat in
+  for(i in 1:nsim) {
+    
+  # filling nmat_sims in
+  nmat_sims[,,i] = NA
   n0 = c(n = c(rep(init.l, 2*lingcod$nage), rep(init.r, rockfish$nage))) # vector of initial abundances  
-  nmat[,1] = n0
+  nmat_sims[,1,i] = n0
+  corr_eps = sim_correlated_ar_ts(corr, autocorr, cv = log(cv), mn = log(1-0.5*cv^2), tf, npops = 2, ind_pops = NULL) # each simulation needs a new stochastic recrtuitment time series
   
-  for(t in 2:tf) {
-    # Calculate recruitment based on previous time step
-    SB = nmat[,t-1] * weight.at.age * mat.at.age # calculate spawning biomass from prev. year
-    nmat[1,t] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum((SB[1:nage]))))/2) # Lingcod Female Recruitment
-    nmat[with(lingcod, (nage+1)), t] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum((SB[1:nage]))))/2) # Lingcod Male Recruitment
-    nmat[with(lingcod, (2*nage+1)), t] = with(rockfish, BevHolt(phi.r, h, r0, sum(SB[with(lingcod, (2*nage+1)):nrow(nmat)]))) # Rockfish Recruitment
-    
-    # Numerically integrate abundance after one time step
-    parms$time = id[t-1] # assign time step ID to select time-varying parameter for lsoda
-    out = as.matrix(lsoda(n0, times, predprey_int, parms)) # run lsoda
-    parms$fish.mort = c(rep(hist.f, 150), rep(0, mpa.yr), rep(f, (tf-(150+mpa.yr)))) # re-enter the vector of fish.mort
-    parms$bycatch = cbind(pre.mpa.bycatch, post.mpa.bycatch) # re-enter the vector of bycatch
-    
-    # now move age classes up one step
-    nmat[2:with(lingcod, nage-1), t] = out[2, 2:with(lingcod, nage-1)] # Female lingcod
-    nmat[with(lingcod, nage), t] = out[2, with(lingcod, nage)] + out[2, with(lingcod, (nage+1))] # Female plus group
-    nmat[with(lingcod, (nage+2):(2*nage-1)), t] = out[2, with(lingcod, (nage+2):(2*nage-1))] # Male lingcod age increase
-    nmat[with(lingcod, (2*nage)), t] = out[2, with(lingcod, (2*nage))] + out[2, with(lingcod, (2*nage+1))] # Male plus group
-    nmat[with(lingcod, (2*nage+2)):(nrow(nmat)-1), t] = out[2, with(lingcod, (2*nage+2)):(nrow(nmat)-1)] # Rockfish age increase
-    nmat[nrow(nmat), t] = out[2, (nrow(nmat))] + out[2,(nrow(nmat)+1)] #rockfish plus group
-    
-    # Add fishery yield into fishery yield vector
-    yield_N[(t-1)] = out[1, (ncol(out)-1)]
-    yield_B[(t-1)] = out[1, ncol(out)]
-    
-    # Now set the vector of abundances as the new n0 for next lsoda run
-    n0 = nmat[,t]
-  }
+    for(t in 2:tf) {
+      # Calculate recruitment based on previous time step
+      SB = nmat_sims[,t-1, i] * weight.at.age * mat.at.age # calculate spawning biomass from prev. year
+      nmat_sims[1,t, i] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum(SB[1:nage]))*corr_eps[t,1])/2) # Lingcod Female Recruitment
+      nmat_sims[with(lingcod, (nage+1)), t, i] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum((SB[1:nage])))*corr_eps[t,1])/2) # Lingcod Male Recruitment
+      nmat_sims[with(lingcod, (2*nage+1)), t, i] = with(rockfish, BevHolt(phi.r, h, r0, sum(SB[with(lingcod, (2*nage+1)):nrow(nmat_sims)]))*corr_eps[t,2]) # Rockfish Recruitment
+      
+      # Numerically integrate abundance after one time step
+      parms$time = id[t-1] # assign time step ID to select time-varying parameter for lsoda
+      out = as.matrix(lsoda(n0, times, predprey_int, parms)) # run lsoda
+      parms$fish.mort = c(rep(hist.f, 150), rep(0, mpa.yr), rep(f, (tf-(150+mpa.yr)))) # re-enter the vector of fish.mort
+      parms$bycatch = cbind(pre.mpa.bycatch, post.mpa.bycatch) # re-enter the vector of bycatch
+      
+      # now move age classes up one step
+      nmat_sims[2:with(lingcod, nage-1), t, i] = out[2, 2:with(lingcod, nage-1)] # Female lingcod
+      nmat_sims[with(lingcod, nage), t, i] = out[2, with(lingcod, nage)] + out[2, with(lingcod, (nage+1))] # Female plus group
+      nmat_sims[with(lingcod, (nage+2):(2*nage-1)), t, i] = out[2, with(lingcod, (nage+2):(2*nage-1))] # Male lingcod age increase
+      nmat_sims[with(lingcod, (2*nage)), t, i] = out[2, with(lingcod, (2*nage))] + out[2, with(lingcod, (2*nage+1))] # Male plus group
+      nmat_sims[with(lingcod, (2*nage+2)):(nrow(nmat_sims)-1), t, i] = out[2, with(lingcod, (2*nage+2)):(nrow(nmat_sims)-1)] # Rockfish age increase
+      nmat_sims[nrow(nmat_sims), t, i] = out[2, (nrow(nmat_sims))] + out[2,(nrow(nmat_sims)+1)] #rockfish plus group
+      
+      # Now set the vector of abundances as the new n0 for next lsoda run
+      n0 = nmat_sims[,t,i]
+    }
   
   # Collecting and saving the necessary information
-  lingcod_SAD = (nmat[1:lingcod$nage,tf] + nmat[(lingcod$nage+1):(2*lingcod$nage), tf])/sum(nmat[1:(2*lingcod$nage),tf]) # Stable age distribution
-  rockfish_SAD = nmat[(2*lingcod$nage+1):nrow(nmat),tf]/sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf])
-  lingcod_Beq = sum(nmat[1:(2*lingcod$nage),tf] * lingcod$weight.at.age) # total biomass at equilibrium
-  rockfish_Beq = sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf] * rockfish$weight.at.age)
-  lingcod_oldprop = (nmat[lingcod$nage,tf] + nmat[2*lingcod$nage,tf])/sum(nmat[1:(2*lingcod$nage), tf]) # proportion of pop that are plus age 
-  rockfish_oldprop = nmat[nrow(nmat), tf]/sum(nmat[(2*lingcod$nage+1):nrow(nmat),tf])
-  yield = rbind(yield_N, yield_B) # total yield 
+  lingcod_biomass_ts[i,] = colSums(nmat_sims[1:with(lingcod, 2*nage),,i]*lingcod$weight.at.age)
+  rockfish_biomass_ts[i,] = colSums(nmat_sims[with(lingcod, (2*nage+1)):nrow(nmat_sims),,i]*rockfish$weight.at.age)
+  
+  }
+
+  # Calculate cv of biomass timeseries for each simulation and take the mean of cv (i.e average cv across simulation)
+  lingcod_cv = mean(apply(lingcod_biomass_ts[,-(1:250)], 1, function(x) sd(x) / mean(x) * 100))
+  rockfish_cv = mean(apply(rockfish_biomass_ts[,-(1:250)], 1, function(x) sd(x) / mean(x) * 100))
   
   # Send output to global environment
-  output = list(lingcod_SAD, rockfish_SAD, lingcod_Beq, rockfish_Beq, lingcod_oldprop, rockfish_oldprop, yield)
-  names(output) = c("lingcod_SAD", "rockfish_SAD", "lingcod_Beq", "rockfish_Beq", "lingcod_oldprop", "rockfish_oldprop", "yield")
+  output = list(lingcod_cv, rockfish_cv)
+  names(output) = c("lingcod_cv", "rockfish_cv")
   return(output) # sends as list
 }
-
-
-
-cv = 0.6
 
 
 
