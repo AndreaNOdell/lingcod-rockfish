@@ -28,7 +28,7 @@ cv = 0.6
 
 get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c(0.23,0.23), cv = log(cv), mn = log(1-0.5*cv^2), 
                      tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, f = 0.1, b = 0.1, a_ij = a_ij, handling = 0.01, times = 1:2, 
-                     stochastic = TRUE, biomass = FALSE) {
+                     harvest.strat = min.selectivity, stochastic = TRUE, biomass = FALSE) {
   # Create empty matrix
   nmat_sims = array(NA, dim = c(2*lingcod$nage+rockfish$nage, tf, nsim), 
                     dimnames=list(spc.age=NULL, 
@@ -56,7 +56,7 @@ get_pop_n = function(rockfish, lingcod, nsim, init.l, init.r, corr, autocorr = c
                                                         rep(1,nage))), # Lingcod male bycatch
                                         with(rockfish, rep(hist.by ,nage)))), (150)), nrow = 2*lingcod$nage+rockfish$nage) # rockfish bycatch
   bycatch = cbind(pre.mpa.bycatch, post.mpa.bycatch)
-  selectivity = c(lingcod$selectivity, # Lingcod female fishing selectivity
+  selectivity = c(lingcod$harvest.strat, # Lingcod female fishing selectivity
                   rockfish$selectivity) # rockfish fishing selectivity
   fish.mort = c(rep(hist.f, 150), rep(0, mpa.yr), rep(f, (tf-(150+mpa.yr))))
   parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, selectivity = selectivity, handling = handling, a_ij = a_ij, weight = weight.at.age)
