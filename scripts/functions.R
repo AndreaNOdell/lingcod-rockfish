@@ -74,3 +74,49 @@ phi_calc = function(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE) {
     #print(phi)
   }
 }
+
+
+
+# Deterministic burn in 
+burn.in = function(lingcod = lingcod, rockfish = rockfish, phi.l = phi.l, phi.r = phi.r, weight.at.age = weight.at.age, 
+                   mat.at.age = mat.at.age, lingcod_harvest = lingcod_harvest, selectivity = selectivity, handling = handling,
+                   a_ij = a_ij.29) {
+  
+  burn.in.nmat = matrix(NA, nrow = 2*lingcod$nage+rockfish$nage, ncol = 150) # create empty matrix to fill in
+  n0 =c(n = c(rep(200, 2*lingcod$nage), rep(70, rockfish$nage))) # Add initial abundances
+  burn.in.nmat[,1] = n0
+  
+  # Parameters for lsoda
+  bycatch = as.matrix(c(rep(1,2*lingcod$nage), rep(0.5, rockfish$nage)))
+  fish.mort = 0.3
+  parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, lingcod_harvest = lingcod_harvest, 
+               selectivity = selectivity, handling = handling, a_ij = a_ij, weight = weight.at.age)
+  times = 1:2
+  
+  for(burn.in in 2:150) {
+    # Calculate recruitment based on previous time step
+    SB = burn.in.nmat[,burn.in-1] * weight.at.age * mat.at.age # calculate spawning biomass from prev. year
+    burn.in.nmat[1,burn.in] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum(SB[1:nage])))/2) # Lingcod Female Recruitment
+    burn.in.nmat[with(lingcod, (nage+1)), burn.in] = with(lingcod, (BevHolt(phi.l[1], h, r0, sum((SB[1:nage]))))/2) # Lingcod Male Recruitment
+    burn.in.nmat[with(lingcod, (2*nage+1)), burn.in] = with(rockfish, BevHolt(phi.r, h, r0, sum(SB[with(lingcod, (2*nage+1)):nrow(burn.in.nmat)]))) # Rockfish Recruitment
+    
+    # Numerically integrate abundance after one time step
+    parms$time = 1 # assign time step ID to select time-varying parameter for lsoda
+    out = as.matrix(lsoda(n0, times, predprey_int, parms)) # run lsoda
+    
+    # now move age classes up one step
+    burn.in.nmat[2:with(lingcod, nage-1), burn.in] = out[2, 2:with(lingcod, nage-1)] # Female lingcod
+    burn.in.nmat[with(lingcod, nage), burn.in] = out[2, with(lingcod, nage)] + out[2, with(lingcod, (nage+1))] # Female plus group
+    burn.in.nmat[with(lingcod, (nage+2):(2*nage-1)), burn.in] = out[2, with(lingcod, (nage+2):(2*nage-1))] # Male lingcod age increase
+    burn.in.nmat[with(lingcod, (2*nage)), burn.in] = out[2, with(lingcod, (2*nage))] + out[2, with(lingcod, (2*nage+1))] # Male plus group
+    burn.in.nmat[with(lingcod, (2*nage+2)):(nrow(burn.in.nmat)-1), burn.in] = out[2, with(lingcod, (2*nage+2)):(nrow(burn.in.nmat)-1)] # Rockfish age increase
+    burn.in.nmat[nrow(burn.in.nmat), burn.in] = out[2, (nrow(burn.in.nmat))] + out[2,(nrow(burn.in.nmat)+1)] #rockfish plus group
+    
+    # Now set the vector of abundances as the new n0 for next lsoda run
+    n0 = burn.in.nmat[,burn.in]
+  }
+  output = burn.in.nmat[,150]
+  return(output)
+}
+
+
