@@ -10,3 +10,4 @@ cleaned_data/*
 *.png
 /PM_dietfraction_method
 *.Rmd
+*.html
