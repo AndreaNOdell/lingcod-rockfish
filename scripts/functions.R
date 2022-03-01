@@ -78,7 +78,7 @@ phi_calc = function(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE) {
 
 
 # Deterministic burn in 
-burn.in = function(lingcod = lingcod, rockfish = rockfish, phi.l = phi.l, phi.r = phi.r, weight.at.age = weight.at.age, 
+burn.in = function(lingcod = lingcod, rockfish = rockfish, phi.l = phi.l, phi.r = phi.r, weight.at.age = weight.at.age, M = M,
                    mat.at.age = mat.at.age, lingcod_harvest = lingcod_harvest, selectivity = selectivity, handling = handling,
                    a_ij = a_ij.29) {
   
