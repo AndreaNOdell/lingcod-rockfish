@@ -1,3 +1,4 @@
+source("scripts/scratch_script.R")
 library(miceadds)
 load.Rdata( filename="cleaned_data/binned.size.spec.Rdata", "binned.size.spec.29" ) # Load in rockfish size-spectra in size-specific lingod diet
 diet.frac.rockfish <- c(rep(0, 4), rep(0.135*0.001, (lingcod$nage-4)), rep(0, 4), rep(0.165*0.001, (lingcod$nage-4)))
@@ -40,7 +41,6 @@ yield_check = as.data.frame(yield_check) %>%
 
 
 # Quantify balance between fishing and bycatch rate ---------------------------------------------------
-
 f = seq(0.01,0.3, by = 0.02)
 b = seq(0.01,0.3, by = 0.02)
 harvest.scenarios = as.data.frame(expand_grid(f,b))
@@ -100,14 +100,26 @@ c(trial_HS$rockfish_oldprop, trial_MSL$rockfish_oldprop)/unfished_vals$rockfish_
 sum(trial_HS$yield[1,(length(trial_HS$yield[1,])-300):length(trial_HS$yield[1,])]) # total biomass yield harvest slot
 sum(trial_MSL$yield[1,(length(trial_MSL$yield[1,])-300):length(trial_MSL$yield[1,])]) # total biomass yield minimum size limit
 
+f = seq(0.01, 0.3, length.out = 10)
+b = seq(0.01,0.3, length.out = 10)
+min.selectivity = c(TRUE, FALSE)
+harvest.scenarios.det = as.data.frame(expand_grid(f,b, min.selectivity))
+
+det_run = mapply(get_pop_det, f = harvest.scenarios.det[,1], b = harvest.scenarios.det[,2], 
+       min.selectivity = harvest.scenarios.det[,3],
+       MoreArgs = list(rockfish = rockfish, lingcod = lingcod), SIMPLIFY = FALSE)
+save(det_run, file = "results/det_run.Rdata")
+
+
+lingcod_det_SBeq = unname(unlist(lapply(det_run, `[`, "lingcod_SBeq"))) # extract lingcod data
+rockfish_det_SBeq = unname(unlist(lapply(det_run, `[`, "rockfish_SBeq")))
+lingcod_det_oldprop = unname(unlist(lapply(det_run, `[`, "lingcod_oldprop")))
+rockfish_det_oldprop = unname(unlist(lapply(det_run, `[`, "rockfish_oldprop")))
+
+det_df = cbind(harvest.scenarios.det, lingcod_det_SBeq, rockfish_det_SBeq, lingcod_det_oldprop, rockfish_det_oldprop)
+
+
 # Stochastic simulations ---------------------------------------------------------------------------------
-
-stoch_trial_MSL = get_pop_stoch(rockfish, lingcod, init.l = 200, init.r = 70, nsim = 4, 
-                                corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6,
-                                tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, 
-                                f = 0.1, b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, 
-                                min.selectivity = TRUE)
-
 f = seq(0.01, 0.3, length.out = 10)
 b = seq(0.01,0.3, length.out = 10)
 corr = c(0.8, -0.8)
@@ -116,103 +128,140 @@ harvest.scenarios = as.data.frame(expand_grid(f,b, corr, min.selectivity))
 
 cv_run = mapply(get_pop_stoch, f = harvest.scenarios[,1], b = harvest.scenarios[,2], corr = harvest.scenarios[,3], 
                 min.selectivity = harvest.scenarios[,4],
-                MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 5), SIMPLIFY = FALSE)
+                MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 10), SIMPLIFY = FALSE)
 
 # Extract data from list
 lingcod_cv = unname(unlist(lapply(cv_run, `[`, "lingcod_cv"))) # extract lingcod data
 rockfish_cv = unname(unlist(lapply(cv_run, `[`, "rockfish_cv"))) # extract rockfish data
-cv_df = cbind(harvest.scenarios, lingcod_cv, rockfish_cv) # add lingcod and rockfish data to harvest scenario info
+lingcod_avg = unname(unlist(lapply(cv_run, `[`, "lingcod_avg")))
+rockfish_avg = unname(unlist(lapply(cv_run, `[`, "rockfish_avg")))
+cv_df = cbind(harvest.scenarios, lingcod_cv, rockfish_cv, lingcod_avg, rockfish_avg) # add lingcod and rockfish data to harvest scenario info
 
 save(cv_df, file = "results/cv_df.Rdata")
 
 
 # make plots ----------------------------------------------------------------------
-lingcod_pcorr_msl_cv = cv_df %>% 
-  filter(corr == 0.8) %>% 
-  filter(min.selectivity == TRUE) %>% 
-  select(f,b,lingcod_cv) %>% 
-  ggplot(aes(x = f, y = b, fill = lingcod_cv)) +
-  geom_tile() +
-  theme_classic() +
-  scale_fill_gradient(limits = c(27,12), trans = 'reverse') +
-  labs(title = "positive correlation MSL")
 
-lingcod_ncorr_msl_cv = cv_df %>% 
-  filter(corr == -0.8) %>% 
-  filter(min.selectivity == TRUE) %>% 
-  select(f,b,lingcod_cv) %>% 
-ggplot(aes(x = f, y = b, fill = lingcod_cv)) +
-  geom_tile() +
+library(PNWColors)
+lingcod_variability = cv_df %>% 
+  select(f, corr, min.selectivity, lingcod_cv) %>% 
+  group_by(min.selectivity, f) %>% 
+  summarise(mean_cv = mean(lingcod_cv)) %>% 
+  ggplot(aes(x = f, y = mean_cv, colour = min.selectivity)) +
+  geom_line() +
   theme_classic() +
-  scale_fill_gradient(limits = c(27,12), trans = 'reverse') +
-  labs(title = "negative correlation MSL")
+  labs(colour = "harvest scenario", y = "Mean CV", x = "Fishing Rate", title = "Lingcod long term variability", subtitle = "across harvest scenarios") +
+  scale_color_manual(labels = c("Harvest Slot", "Min. Size Limit"), values = pnw_palette("Sunset2", 2)) 
+
+lingcod_avg_det = det_df %>% 
+  select(f, min.selectivity, lingcod_det_SBeq) %>% 
+  group_by(f, min.selectivity) %>% 
+  summarise(det_SBeq = mean(lingcod_det_SBeq)/unfished_vals$lingcod_SBeq)
+
+lingcod_avg = cv_df %>% 
+  select(f, corr, min.selectivity, lingcod_avg) %>% 
+  group_by(min.selectivity, f) %>% 
+  summarise(mean_avg = mean(lingcod_avg)/unfished_vals$lingcod_SBeq) %>% 
+  ggplot(aes(x = f, y = mean_avg, colour = min.selectivity)) +
+  geom_line() +
+  geom_line(data = lingcod_avg_det, aes(x = f, y = det_SBeq, colour = min.selectivity), linetype= "dashed") + 
+  theme_classic() +
+  labs(colour = "harvest scenario", y = "Spawning Biomass", x = "Fishing Rate", title = "Lingcod long term average SB", subtitle = "across harvest scenarios") +
+  scale_color_manual(labels = c("Harvest Slot", "Min. Size Limit"), values = pnw_palette("Sunset2", 4)) 
 
 
 rockfish_pcorr_msl_cv = cv_df %>% 
-  filter(corr == 0.8) %>% 
-  filter(min.selectivity == TRUE) %>% 
+  filter(corr == "positive") %>% 
+  filter(min.selectivity == "MSL") %>% 
   select(f,b,rockfish_cv) %>% 
   ggplot(aes(x = f, y = b, fill = rockfish_cv)) +
   geom_tile() +
   theme_classic() +
-  scale_fill_gradient(limits = c(17, 2), trans = 'reverse') +
+  scale_fill_gradient(limits = c(18, 2), trans = 'reverse') +
   labs(title = "positive correlation MSL")
 
 rockfish_ncorr_msl_cv = cv_df %>% 
-  filter(corr == -0.8) %>% 
-  filter(min.selectivity == TRUE) %>% 
+  filter(corr == "negative") %>% 
+  filter(min.selectivity == "MSL") %>% 
   select(f,b,rockfish_cv) %>% 
   ggplot(aes(x = f, y = b, fill = rockfish_cv)) +
   geom_tile() +
   theme_classic() +
-  scale_fill_gradient(limits = c(17, 2), trans = 'reverse') +
+  scale_fill_gradient(limits = c(18, 2), trans = 'reverse') +
   labs(title = "negative correlation MSL")
-
-lingcod_pcorr_HS_cv = cv_df %>% 
-  filter(corr == 0.8) %>% 
-  filter(min.selectivity == FALSE) %>% 
-  select(f,b,lingcod_cv) %>% 
-  ggplot(aes(x = f, y = b, fill = lingcod_cv)) +
-  geom_tile() +
-  theme_classic() +
-  scale_fill_gradient(limits = c(27,12), trans = 'reverse') +
-  labs(title = "positive correlation HS")
-
-lingcod_ncorr_HS_cv = cv_df %>% 
-  filter(corr == -0.8) %>% 
-  filter(min.selectivity == FALSE) %>% 
-  select(f,b,lingcod_cv) %>% 
-  ggplot(aes(x = f, y = b, fill = lingcod_cv)) +
-  geom_tile() +
-  theme_classic() +
-  scale_fill_gradient(limits = c(27,12), trans = 'reverse') +
-  labs(title = "negative correlation HS")
 
 
 rockfish_pcorr_HS_cv = cv_df %>% 
-  filter(corr == 0.8) %>% 
-  filter(min.selectivity == FALSE) %>% 
+  filter(corr == "positive") %>% 
+  filter(min.selectivity == "HS") %>% 
   select(f,b,rockfish_cv) %>% 
   ggplot(aes(x = f, y = b, fill = rockfish_cv)) +
   geom_tile() +
   theme_classic() +
-  scale_fill_gradient(limits = c(17, 2), trans = 'reverse') +
+  scale_fill_gradient(limits = c(18, 2), trans = 'reverse') +
   labs(title = "positive correlation HS")
 
 rockfish_ncorr_HS_cv = cv_df %>% 
-  filter(corr == -0.8) %>% 
-  filter(min.selectivity == FALSE) %>% 
+  filter(corr == "negative") %>% 
+  filter(min.selectivity == "HS") %>% 
   select(f,b,rockfish_cv) %>% 
   ggplot(aes(x = f, y = b, fill = rockfish_cv)) +
   geom_tile() +
   theme_classic() +
-  scale_fill_gradient(limits = c(17, 2), trans = 'reverse') +
+  scale_fill_gradient(limits = c(18, 2), trans = 'reverse') +
   labs(title = "negative correlation HS")
   
-  
-  
-  
-  
-  
-  
+
+# Looking at how rockfish variability changes with lingcod variability 
+library("viridis")
+cv_df[cv_df == -0.8] <- "negative" 
+cv_df[cv_df == 0.8] <- "positive" 
+cv_df[cv_df == TRUE] <- "MSL" 
+cv_df[cv_df == FALSE] <- "HS" 
+cv_df %>% 
+  select(lingcod_cv, rockfish_cv, corr, b, min.selectivity) %>%
+  ggplot(aes(x = lingcod_cv, y = rockfish_cv, colour = corr, group=min.selectivity)) +
+  geom_point(aes(shape=min.selectivity)) +
+  theme_classic() +
+  scale_color_manual(values = pnw_palette("Sunset2", 2)) 
+
+cv_df %>% 
+  select(lingcod_cv, rockfish_cv, corr, min.selectivity) %>%
+  ggplot(aes(x = lingcod_cv, y = rockfish_cv, colour = min.selectivity)) +
+  geom_point() +
+  theme_classic() +
+  scale_color_manual(values = pnw_palette("Sunset2", 2)) 
+
+cv_df %>% 
+  select(f, b, rockfish_avg, corr, min.selectivity) %>%
+  ggplot(aes(x = f, y = b, fill = rockfish_avg/unfished_vals$rockfish_SBeq)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient2(midpoint = 1, low = "red", mid = "white", high = "blue") +
+  facet_wrap(~corr + min.selectivity) +
+  labs(title = "Average Rockfish Spawning Biomass", fill = "Relative SB")
+
+cv_df %>% 
+  select(f, b, rockfish_cv, corr, min.selectivity) %>%
+  filter(corr == "positive") %>% 
+  ggplot(aes(x = f, y = b, fill = rockfish_cv)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_viridis(option = "plasma", trans = 'reverse') +
+  facet_wrap(~min.selectivity) +
+  labs(title = "Average Rockfish CV", fill = "Mean CV")
+
+cv_df %>% 
+  select(f, b, rockfish_cv, corr, min.selectivity) %>%
+  filter(corr == "negative") %>% 
+  ggplot(aes(x = f, y = b, fill = rockfish_cv)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_viridis(trans = "reverse") +
+  facet_wrap(~min.selectivity) +
+  labs(title = "Average Rockfish CV", fill = "Mean CV")
+
+
+
+
 
