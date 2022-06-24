@@ -6,6 +6,8 @@ library(tidyverse)
 load("cleaned_data/lingcod_parms.Rdata")
 load("cleaned_data/rockfish_parms.Rdata")
 
+
+get_binnedsizespec <- function(quant95) {
 # from Beaudreau & Essington 2007
 get_gamma_pars <- function(pars, quant5, quant95) {
   alpha <- exp(pars[1]); beta <- exp(pars[2])
@@ -14,7 +16,7 @@ get_gamma_pars <- function(pars, quant5, quant95) {
   return((inv.cdf.5-quant5)^2+(inv.cdf.95-quant95)^2)
 }
 
-optim.result <- exp(optim(c(0,0), get_gamma_pars, quant5=.05, quant95=.33)$par)
+optim.result <- exp(optim(c(0,0), get_gamma_pars, quant5=.05, quant95=quant95)$par)
 
 size.spec.al <- optim.result[1] # alpha = 3.93
 size.spec.be <- optim.result[2] # beta = .038 * lingcod length (in cm)
@@ -49,7 +51,11 @@ for(ling.size in 1:length(lingcod$length.at.age)) {
   spec.by.num <- unnorm.spec/sum(unnorm.spec)
   # Convert size spectrum by number into size spectrum by mass!
   binned.size.spec[,ling.size] <- spec.by.num # *rockfish$weight.at.age / sum(spec.by.num*rockfish$weight.at.age)
-  }
+}
+
+return(binned.size.spec)
+}
+
 
 # Check to see if all columns sum to 1
 colSums(binned.size.spec)
