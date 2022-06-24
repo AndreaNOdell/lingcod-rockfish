@@ -21,10 +21,16 @@ df <- miceadds::load.Rdata2(filename="cleaned_data/lingcod_rockfish_w_gutcontent
 # for each lingcod individual.
 
 df_F = df %>% 
-  filter(Sex == "F")
+  filter(Sex == "F") %>% 
+  filter(Port %in%  c("BRO", "LOS", "SLO", "HMB", "MON", "EME", "MOR", "BOD", "FTB", "EUR", "SBA", 
+                      "SDG"))
+    # 233 observations
 
 df_M = df %>% 
-  filter(Sex == "M")
+  filter(Sex == "M") %>% 
+  filter(Port %in%  c("BRO", "LOS", "SLO", "HMB", "MON", "EME", "MOR", "BOD", "FTB", "EUR", "SBA", 
+                      "SDG"))
+    # 409 observations
 
 #### GAMlss approach ####
 m1 = gamlss(gut.ratio.sebastes.wt ~ cs(TL.cm), family = BEINF(), data = df_F, method = RS())
@@ -90,10 +96,10 @@ M_diet_data_for_model = df_M %>%
 source('PM_dietfraction_method/run.model.R')#prints the parameter estimates for all 8 mixture model parameters, 
 source('PM_dietfraction_method/model.comparison.R')#estimates the prey contribution, c_i, using the mixture model, weighted mean and mean and calculates  error for each estimate
 
-run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2]) # 0.135
+run.model(F_diet_data_for_model[,1],F_diet_data_for_model[,2]) # 0.215
 model.comparison(F_diet_data_for_model[,1],F_diet_data_for_model[,2],mat=T)
 
-run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2]) # 0.165
+run.model(M_diet_data_for_model[,1],M_diet_data_for_model[,2]) # 0.139
 model.comparison(M_diet_data_for_model[,1],M_diet_data_for_model[,2],mat=T)
 
 load("cleaned_data/lingcod_parms.Rdata")
