@@ -1,12 +1,15 @@
 source("scripts/scratch_script.R")
 library(miceadds)
+library(parallel)
 load.Rdata( filename="cleaned_data/binned.size.spec.Rdata", "binned.size.spec.29" ) # Load in rockfish size-spectra in size-specific lingod diet
-diet.frac.rockfish <- c(rep(0, 4), rep(0.135*0.001, (lingcod$nage-4)), rep(0, 4), rep(0.165*0.001, (lingcod$nage-4)))
-a_ij.29 = binned.size.spec.29 %*% diag(diet.frac.rockfish) # with interaction
+
 
 # Unfished equilibrium ---------------------------------------------------------------------------------
-unfished_vals = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 70,  tf = 300, mpa.yr = 20, hist.f = 0, hist.by = 0.5, 
-                            f = 0, b = 0, a_ij = a_ij.29, handling = 0.01, times = 1:2, min.selectivity = TRUE) # I checked and 300 yrs long enough
+unfished_vals = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 50,  tf = 300, mpa.yr = 20, hist.f = 0, hist.by = 0.5, 
+                            f = 0, b = 0, a_ij = binned.size.spec.29, handling = 0.7, times = 1:2, min.selectivity = TRUE) # I checked and 300 yrs long enough
+unfished_vals_no_int = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 70,  tf = 300, mpa.yr = 20, hist.f = 0, hist.by = 0.5, 
+                                   f = 0, b = 0, a_ij = a_ij.0, handling = 0.1, times = 1:2, min.selectivity = TRUE) # I checked and 300 yrs long enough
+
 
 # Check if yield is same between the two harvest strategies -----------------------------------------------
 fishing_trials = seq(0.1, 0.2, by = 0.1)
@@ -88,7 +91,7 @@ fxb_trials = as.data.frame(cbind(final_fxb_balance$f, final_fxb_balance$b)) %>%
 # deterministic model to get expected outcomes of fishery objectives -----------
 
 trial_MSL = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 70,  tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, 
-            f = 0.1, b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, min.selectivity = TRUE)
+            f = 0.1, b = 0.1, a_ij = binned.size.spec.29, handling = 2, times = 1:2, min.selectivity = TRUE)
 
 trial_HS = get_pop_det(rockfish, lingcod, init.l = 200, init.r = 70,  tf = (150+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, 
                         f = 0.1, b = 0.1, a_ij = a_ij.29, handling = 0.01, times = 1:2, min.selectivity = FALSE)
@@ -100,35 +103,56 @@ c(trial_HS$rockfish_oldprop, trial_MSL$rockfish_oldprop)/unfished_vals$rockfish_
 sum(trial_HS$yield[1,(length(trial_HS$yield[1,])-300):length(trial_HS$yield[1,])]) # total biomass yield harvest slot
 sum(trial_MSL$yield[1,(length(trial_MSL$yield[1,])-300):length(trial_MSL$yield[1,])]) # total biomass yield minimum size limit
 
-f = seq(0.01, 0.3, length.out = 10)
-b = seq(0.01,0.3, length.out = 10)
-min.selectivity = c(TRUE, FALSE)
-harvest.scenarios.det = as.data.frame(expand_grid(f,b, min.selectivity))
+f = seq(0.01, 0.3, length.out = 5)
+b = seq(0.01,0.2, length.out = 3)
+#min.selectivity = c(TRUE, FALSE)
+harvest.scenarios.det = as.data.frame(expand_grid(f,b))
 
-det_run = mapply(get_pop_det, f = harvest.scenarios.det[,1], b = harvest.scenarios.det[,2], 
-       min.selectivity = harvest.scenarios.det[,3],
-       MoreArgs = list(rockfish = rockfish, lingcod = lingcod), SIMPLIFY = FALSE)
+det_run = mcmapply(get_pop_det, f = harvest.scenarios.det[,1], b = harvest.scenarios.det[,2],
+       MoreArgs = list(rockfish = rockfish, lingcod = lingcod), SIMPLIFY = FALSE, mc.cores = 4)
 save(det_run, file = "results/det_run.Rdata")
 
 
-lingcod_det_SBeq = unname(unlist(lapply(det_run, `[`, "lingcod_SBeq"))) # extract lingcod data
+# lingcod_det_SBeq = unname(unlist(lapply(det_run, `[`, "lingcod_SBeq"))) # extract lingcod data
 rockfish_det_SBeq = unname(unlist(lapply(det_run, `[`, "rockfish_SBeq")))
-lingcod_det_oldprop = unname(unlist(lapply(det_run, `[`, "lingcod_oldprop")))
+# lingcod_det_oldprop = unname(unlist(lapply(det_run, `[`, "lingcod_oldprop")))
 rockfish_det_oldprop = unname(unlist(lapply(det_run, `[`, "rockfish_oldprop")))
+rockfish_biomass = matrix(unname(unlist(lapply(det_run, `[`, "biomass_rockfish"))), nrow = (150+20+300))
 
-det_df = cbind(harvest.scenarios.det, lingcod_det_SBeq, rockfish_det_SBeq, lingcod_det_oldprop, rockfish_det_oldprop)
+det_df = cbind(harvest.scenarios.det, "Rockfish_SB" = rockfish_det_SBeq/unfished_vals$rockfish_SBeq, "Rockfish_oldprop" = rockfish_det_oldprop/unfished_vals$rockfish_oldprop)
+save(det_df, file = "results/det_df.Rdata")
 
 
 # Stochastic simulations ---------------------------------------------------------------------------------
-f = seq(0.01, 0.3, length.out = 10)
-b = seq(0.01,0.3, length.out = 10)
+f = seq(0.01, 0.3, length.out = 4)
+b = seq(0.01,0.3, length.out = 4)
 corr = c(0.8, -0.8)
 min.selectivity = c(TRUE, FALSE)
-harvest.scenarios = as.data.frame(expand_grid(f,b, corr, min.selectivity))
+harvest.scenarios = as.data.frame(expand_grid(f,b, corr))
 
 cv_run = mapply(get_pop_stoch, f = harvest.scenarios[,1], b = harvest.scenarios[,2], corr = harvest.scenarios[,3], 
                 min.selectivity = harvest.scenarios[,4],
                 MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 10), SIMPLIFY = FALSE)
+
+cv_run_no_int = mcmapply(get_pop_stoch, f = harvest.scenarios[,1], b = harvest.scenarios[,2], corr = harvest.scenarios[,3], 
+                       MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 10, a_ij = a_ij.0), SIMPLIFY = FALSE, mc.cores = 4)
+
+cv_run_compare = mcmapply(get_pop_stoch, f = harvest.scenarios[,1], b = harvest.scenarios[,2], corr = harvest.scenarios[,3],
+                MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 10), SIMPLIFY = FALSE, mc.cores = 4)
+
+
+# Test just the different correlations
+corr_cv_run = mapply(get_pop_stoch, corr = corr,
+                    MoreArgs = list(f = 0, b = 0, rockfish = rockfish, lingcod = lingcod, nsim = 100), SIMPLIFY = FALSE)
+
+corr_cv_run_no_int = get_pop_stoch(rockfish, lingcod, nsim = 100, corr = 0.8, autocorr = c(0.23,0.23), cv = 0.6,
+                                   tf = (30+20+300), mpa.yr = 20, hist.f = 0.5, hist.by = 0.5, 
+                                   f = 0, b = 0, a_ij = a_ij.0, handling = 0.01, times = 1:2, min.selectivity = TRUE)
+
+
+unname(unlist(lapply(corr_cv_run, `[`, "rockfish_cv")))
+unname(unlist(lapply(corr_cv_run, `[`, "rockfish_avg")))/corr_cv_run_no_int$rockfish_avg
+
 
 # Extract data from list
 lingcod_cv = unname(unlist(lapply(cv_run, `[`, "lingcod_cv"))) # extract lingcod data
@@ -137,8 +161,93 @@ lingcod_avg = unname(unlist(lapply(cv_run, `[`, "lingcod_avg")))
 rockfish_avg = unname(unlist(lapply(cv_run, `[`, "rockfish_avg")))
 cv_df = cbind(harvest.scenarios, lingcod_cv, rockfish_cv, lingcod_avg, rockfish_avg) # add lingcod and rockfish data to harvest scenario info
 
-save(cv_df, file = "results/cv_df.Rdata")
+rockfish_cv_no_int = unname(unlist(lapply(cv_run_no_int, `[`, "rockfish_cv")))
+rockfish_avg_no_int = unname(unlist(lapply(cv_run_no_int, `[`, "rockfish_avg")))
+rockfish_cv_comp = unname(unlist(lapply(cv_run_compare, `[`, "rockfish_cv")))
+rockfish_avg_comp = unname(unlist(lapply(cv_run_compare, `[`, "rockfish_avg")))
+cv_df_comp = cbind(harvest.scenarios, rockfish_cv_no_int, rockfish_cv_comp, rockfish_avg_no_int, rockfish_avg_comp)
 
+save(cv_df, file = "results/cv_df.Rdata")
+save(cv_df_comp, file = "results/cv_df_comp.Rdata")
+
+# get sample time series info
+timeseries_run = mapply(get_sample_ts, corr = c(0.8, -0.8),
+                        MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 10, min.selectivity = TRUE), SIMPLIFY = FALSE)
+timeseries_run_no_interaction = mapply(get_sample_ts, corr = c(0.8, -0.8),
+                        MoreArgs = list(rockfish = rockfish, lingcod = lingcod, nsim = 20, min.selectivity = TRUE, a_ij = a_ij.0), SIMPLIFY = FALSE)
+save(timeseries_run, file = "results/timeseries_run.Rdata")
+save(timeseries_run_no_interaction, file = "results/timeseries_run_no_interaction.Rdata")
+
+pcorr_consumption_ts = timeseries_run[[1]][["lingcod_consumption"]]
+ncorr_consumption_ts = timeseries_run[[2]][["lingcod_consumption"]]
+
+cons_vis = cbind(timeseries_run[[1]][["biomass_ts_1"]][2,1:449], timeseries_run[[1]][["lingcod_consumption"]][1,1:449]/timeseries_run[[1]][["biomass_ts_1"]][2, 1:449])
+cons_vis_neg = cbind(timeseries_run[[2]][["biomass_ts_1"]][2,1:449], timeseries_run[[2]][["lingcod_consumption"]][1,1:449]/timeseries_run[[2]][["biomass_ts_1"]][2, 1:449])
+
+plot(cons_vis_neg[,1], cons_vis_neg[,2], type = "p", pch = 19, cex = 0.5)#, xlim = c(7000,69000), ylim = c(0, .000065), xlab = "lingcod biomass", ylab = "consumption rate")
+points(cons_vis[,1], cons_vis[,2], type = "p", pch = 19, cex = 0.5, col = "red")
+legend(50000, 0.00006, legend=c("negative", "positive"), col=c("black", "red"), lty = 1 , cex=0.8)
+
+# saving 1 simulation of age structure through time
+age_ts_pcorr = as.data.frame(rbind(timeseries_run[[1]][["age_ts_3"]][1:20,] + timeseries_run[[1]][["age_ts_3"]][21:40,],
+                     timeseries_run[[1]][["age_ts_3"]][-(1:40),]))
+age_ts_ncorr = as.data.frame(rbind(timeseries_run[[2]][["age_ts_1"]][1:20,] + timeseries_run[[2]][["age_ts_3"]][21:40,],
+                     timeseries_run[[2]][["age_ts_3"]][-(1:40),]))
+colnames(age_ts_ncorr) = colnames(age_ts_pcorr) = (time = 1:450)
+
+# Saving spawning biomass info 
+ling_SB_pcorr = rbind(timeseries_run[[1]][["SB_ts_1"]][1,], 
+                      timeseries_run[[1]][["SB_ts_2"]][1,], 
+                      timeseries_run[[1]][["SB_ts_3"]][1,])
+ling_SB_ncorr = rbind(timeseries_run[[2]][["SB_ts_1"]][1,], 
+                      timeseries_run[[2]][["SB_ts_2"]][1,], 
+                      timeseries_run[[2]][["SB_ts_3"]][1,])
+rock_SB_pcorr = rbind(timeseries_run[[1]][["SB_ts_1"]][2,], 
+                      timeseries_run[[1]][["SB_ts_2"]][2,], 
+                      timeseries_run[[1]][["SB_ts_3"]][2,])
+rock_SB_ncorr = rbind(timeseries_run[[2]][["SB_ts_1"]][2,], 
+                      timeseries_run[[2]][["SB_ts_2"]][2,], 
+                      timeseries_run[[2]][["SB_ts_3"]][2,])
+rock_SB_no_int = rbind(timeseries_run_no_interaction[[2]][["SB_ts_1"]][2,], 
+                       timeseries_run_no_interaction[[2]][["SB_ts_2"]][2,], 
+                       timeseries_run_no_interaction[[2]][["SB_ts_3"]][2,])
+
+
+jpeg("plots/ling_SB_ncorr.jpeg")
+matplot(t(ling_SB_ncorr), type = "l", ylab = "spawning biomass", main = "lingcod SB ncorr", ylim = c(0, 51000), lty = 1)
+dev.off()
+jpeg("plots/ling_SB_pcorr.jpeg")
+matplot(t(ling_SB_pcorr), type = "l", ylab = "spawning biomass", main = "lingcod SB pcorr", ylim = c(0, 51000), lty = 1)
+dev.off()
+jpeg("plots/rock_SB_pcorr.jpeg")
+matplot(t(rock_SB_pcorr), type = "l", ylab = "spawning biomass", main = "rockfish SB pcorr", ylim = c(0, 2700), lty = 1)
+dev.off()
+jpeg("plots/rock_SB_ncorr.jpeg")
+matplot(t(rock_SB_ncorr), type = "l", ylab = "spawning biomass", main = "rockfish SB ncorr", ylim = c(0, 2700), lty = 1)
+dev.off()
+jpeg("plots/rock_SB_no_int.jpeg")
+matplot(t(rock_SB_no_int), type = "l", ylab = "spawning biomass", main = "rockfish SB no interaction", ylim = c(0, 5500), lty = 1)
+dev.off()
+
+# Saving total biomass info
+rock_B_pcorr = rbind(timeseries_run[[1]][["biomass_ts_1"]][2,], 
+                      timeseries_run[[1]][["biomass_ts_2"]][2,], 
+                      timeseries_run[[1]][["biomass_ts_3"]][2,])
+rock_B_ncorr = rbind(timeseries_run[[2]][["biomass_ts_1"]][2,], 
+                      timeseries_run[[2]][["biomass_ts_2"]][2,], 
+                      timeseries_run[[2]][["biomass_ts_3"]][2,])
+
+
+jpeg("plots/consumption_pcorr.jpeg")
+matplot(t(pcorr_consumption_ts), type = "l", lty = 1, main = "positive correlation", ylab = "Consumption in biomass", ylim = c(1,14))
+dev.off()
+
+jpeg("plots/consumption_ncorr.jpeg")
+matplot(t(ncorr_consumption_ts), type = "l", lty = 1, main = "negative correlation", ylab = "Consumption in biomass", ylim = c(1,14))
+dev.off()
+
+matplot(t(timeseries_run[[1]]$ts_2), type = "l", lty = 1) # positive
+matlines(t(timeseries_run[[2]]$ts_2), lty = 2) # negative
 
 # make plots ----------------------------------------------------------------------
 
@@ -260,6 +369,128 @@ cv_df %>%
   scale_fill_viridis(trans = "reverse") +
   facet_wrap(~min.selectivity) +
   labs(title = "Average Rockfish CV", fill = "Mean CV")
+
+
+# how rockfish variability and SB compare to no interaction
+cv_df_comp[cv_df_comp == -0.8] <- "negative" 
+cv_df_comp[cv_df_comp == 0.8] <- "positive" 
+
+jpeg("plots/interaction_impact_cv.jpeg")
+as.data.frame(cv_df_comp) %>% 
+  select(f, b, corr, rockfish_cv_no_int, rockfish_cv_comp) %>%
+  rename(no.interaction = rockfish_cv_no_int) %>% 
+  rename(interaction = rockfish_cv_comp) %>% 
+  ggplot(aes(x = f, y = b, fill = interaction/no.interaction)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient2(midpoint = 1, low = "red", mid = "white", high = "blue") +
+  facet_wrap(~corr) +
+  labs(title = "CV relative to no interaction", fill = "Relative CV")
+dev.off()
+
+jpeg("plots/interaction_impact_SB.jpeg")
+as.data.frame(cv_df_comp) %>% 
+  select(f, b, corr, rockfish_avg_no_int, rockfish_avg_comp) %>%
+  rename(no.interaction = rockfish_avg_no_int) %>% 
+  rename(interaction = rockfish_avg_comp) %>% 
+  ggplot(aes(x = f, y = b, fill = interaction/no.interaction)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient2(midpoint = 1, low = "red", mid = "white", high = "blue") +
+  facet_wrap(~corr) +
+  labs(title = "SB relative to no interaction", fill = "Relative SB")
+dev.off()
+
+# Age structure through time
+
+jpeg("plots/lingcod_age_ts_pcorr.jpeg")
+as.data.frame(age_ts_pcorr) %>% 
+  mutate(age = c(1:20,1:65)) %>% 
+  mutate(species = c(rep("lingcod", lingcod$nage),rep("yelloweye", rockfish$nage))) %>% 
+  gather(time, N, 1:450) %>% 
+  filter(species == "lingcod") %>% 
+  filter(time %in% 350:450) %>% 
+  ggplot(aes(x = time, y = age, fill = N)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient(trans = "reverse", limits = c(12700, 1)) +
+  theme(axis.text.x = element_text(angle=45)) +
+  lims(y = c(0, 65)) +
+  labs(title = "lingcod positive corr")
+dev.off()
+
+jpeg("plots/rockfish_age_ts_pcorr_3.jpeg")
+as.data.frame(age_ts_pcorr) %>% 
+  mutate(age = c(1:20,1:65)) %>% 
+  mutate(species = c(rep("lingcod", lingcod$nage),rep("yelloweye", rockfish$nage))) %>% 
+  gather(time, N, 1:450) %>% 
+  filter(species == "yelloweye") %>% 
+  filter(time %in% 350:450) %>% 
+  ggplot(aes(x = time, y = age, fill = N)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient(low = "yellow", high = "red", limits = c(0, 680)) +
+  theme(axis.text.x = element_text(angle=45)) +
+  lims(y = c(1,65)) +
+  labs(title = "Rockfish positive corr")
+dev.off()
+
+jpeg("plots/lingcod_age_ts_ncorr.jpeg")
+as.data.frame(age_ts_ncorr) %>% 
+  mutate(age = c(1:20,1:65)) %>% 
+  mutate(species = c(rep("lingcod", lingcod$nage),rep("yelloweye", rockfish$nage))) %>% 
+  gather(time, N, 1:450) %>% 
+  filter(species == "lingcod") %>% 
+  filter(time %in% 350:450) %>% 
+  ggplot(aes(x = time, y = age, fill = N)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient(trans = "reverse", limits = c(12700, 1)) +
+  theme(axis.text.x = element_text(angle=45)) +
+  lims(y = c(0, 65)) +
+  labs(title = "lingcod negative corr")
+dev.off()
+
+jpeg("plots/rockfish_age_ts_ncorr_3.jpeg")
+as.data.frame(age_ts_ncorr) %>% 
+  mutate(age = c(1:20,1:65)) %>% 
+  mutate(species = c(rep("lingcod", lingcod$nage),rep("yelloweye", rockfish$nage))) %>% 
+  gather(time, N, 1:450) %>% 
+  filter(species == "yelloweye") %>% 
+  filter(time %in% 350:450) %>% 
+  ggplot(aes(x = time, y = age, fill = N)) +
+  geom_tile() +
+  theme_classic() +
+  scale_fill_gradient(low = "yellow", high = "red", limits = c(0, 680)) +
+  theme(axis.text.x = element_text(angle=45)) +
+  lims(y = c(1,65)) +
+  labs(title = "Rockfish negative corr")
+dev.off()
+
+# check the correlation between lingcod and rockfish age-1s
+as.data.frame(age_ts_ncorr) %>% 
+  mutate(age = c(1:20,1:65)) %>% 
+  mutate(species = c(rep("lingcod", lingcod$nage),rep("yelloweye", rockfish$nage))) %>% 
+  gather(time, N, 1:450) %>% 
+  filter(age == 1) %>% 
+  filter(time %in% 425:450) %>% 
+  ggplot(aes(x = time, y = N, col = species)) +
+  geom_point() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle=45)) +
+  labs(title = "Age-1 negative corr")
+
+
+# Biomass and Spawning Biomass through time
+
+# lingcod
+
+
+
+
+# Consumption variation ----------------------------------------------------------
+
+
 
 
 
