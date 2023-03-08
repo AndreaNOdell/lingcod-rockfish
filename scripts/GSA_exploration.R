@@ -53,7 +53,7 @@ ggplot(GSA_total_df, aes(x = rockfish.prop, y = rockfish_avg, color = handling))
   theme_classic()
 # the decrease in long term spawning biomass is driven in part by handling and yelloweye rockfish proportion
 
-# Random forest --------------------------------------------
+# Random forest -----------------------------------------
 
 RF_avg <- randomForest(rockfish_avg~.,data=RF_SBeq_total_data, mtry = 4, importance = TRUE, proximity=TRUE)
 RF_cv <- randomForest(rockfish_cv~.,data=RF_CVeq_total_data, mtry = 4, importance=TRUE,proximity=TRUE)
