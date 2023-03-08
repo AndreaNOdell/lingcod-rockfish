@@ -12,3 +12,4 @@ cleaned_data/*
 *.Rmd
 *.html
 */old
+/graveyard
