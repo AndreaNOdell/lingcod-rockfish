@@ -80,7 +80,7 @@ phi_calc = function(age, nat.mort, weight.at.age, mat.at.age, lingcod = FALSE) {
 # Deterministic burn in 
 burn.in = function(lingcod = lingcod, rockfish = rockfish, phi.l = phi.l, phi.r = phi.r, weight.at.age = weight.at.age, M = M,
                    mat.at.age = mat.at.age, lingcod_harvest = lingcod_harvest, selectivity = selectivity, handling = handling,
-                   a_ij = a_ij, consump_yelloweye_n = consump_yelloweye_n, otherprey_n = otherprey_n) {
+                   a_ij = a_ij, consump_yelloweye_n = consump_yelloweye_n, otherprey_n = otherprey_n, hist.f = hist.f) {
   
   burn.in.nmat = matrix(NA, nrow = 2*lingcod$nage+rockfish$nage, ncol = 150) # create empty matrix to fill in
   n0 =c(n = c(rep(200, 2*lingcod$nage), rep(70, rockfish$nage))) # Add initial abundances
@@ -88,7 +88,7 @@ burn.in = function(lingcod = lingcod, rockfish = rockfish, phi.l = phi.l, phi.r 
   
   # Parameters for lsoda
   bycatch = as.matrix(c(rep(1,2*lingcod$nage), rep(0.5, rockfish$nage)))
-  fish.mort = 0.3
+  fish.mort = hist.f
   parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, lingcod_harvest = lingcod_harvest, 
                selectivity = selectivity, handling = handling, consump_yelloweye_n = consump_yelloweye_n, weight = weight.at.age, otherprey_n = otherprey_n)
   times = 1:2
