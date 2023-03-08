@@ -3,8 +3,8 @@
 .RData
 .Ruserdata
 *.pdf
-raw_data/*
-cleaned_data/*
+raw_data/
+cleaned_data/
 /PM_dietfraction_method
 *.Rmd
 *.html
