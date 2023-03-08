@@ -3,14 +3,12 @@
 .RData
 .Ruserdata
 *.pdf
-plots/*
 raw_data/*
 cleaned_data/*
-*.jpeg 
-*.png
 /PM_dietfraction_method
 *.Rmd
 *.html
 */old
 /graveyard
 /writing
+/markdowns
