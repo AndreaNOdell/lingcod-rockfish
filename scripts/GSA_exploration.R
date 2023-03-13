@@ -40,19 +40,6 @@ figure = ggarrange(avg_hist + rremove("ylab"), cv_hist + rremove("ylab"), age_hi
 annotate_figure(figure, left = textGrob("count", rot = 90, vjust = 1, gp = gpar(cex = 1)))
 dev.off()
 
-# The effect of handling time on spawning biomass
-ggplot(GSA_total_df, aes(x = handling, y = rockfish_avg)) +
-  geom_point() +
-  theme_classic()
-# for the handling time, are these values reasonable? The effect on spawning biomass
-# seems to occur in such a narrow range of handling values which seems
-# to be driving their importance indicated from the random forest.
-
-ggplot(GSA_total_df, aes(x = rockfish.prop, y = rockfish_avg, color = handling)) +
-  geom_point() +
-  theme_classic()
-# the decrease in long term spawning biomass is driven in part by handling and yelloweye rockfish proportion
-
 # Random forest -----------------------------------------
 
 RF_avg <- randomForest(rockfish_avg~.,data=RF_SBeq_total_data, mtry = 4, importance = TRUE, proximity=TRUE)
@@ -186,3 +173,88 @@ annotate_figure(figure, left = textGrob("parameter", rot = 90, vjust = 1, gp = g
                 bottom = textGrob("%IncMSE", gp = gpar(cex = 0.9)))
 dev.off()
 
+
+# Parameter influence ------------------------------------
+
+#### Spawning Biomass ####
+
+# The effect of handling time on spawning biomass
+jpeg(filename = "plots/GSA/SB_handling.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = handling, y = rockfish_avg)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass")
+dev.off()
+# for the handling time, are these values reasonable? The effect on spawning biomass
+# seems to occur in such a narrow range of handling values which seems
+# to be driving their importance indicated from the random forest.
+
+# The effect of yelloweye and rockfish proportion on spawning biomass
+jpeg(filename = "plots/GSA/SB_yelloweye.prop.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = rockfish.prop, y = rockfish_avg)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass", x = "proportion rockfish")
+dev.off()
+# The effect of yelloweye.prop (the proportion of rockfish that is yelloweye) and 
+# rockfish proportion (the proportion of lingcod diet that is rockfish)
+
+jpeg(filename = "plots/GSA/SB_cv.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = cv, y = rockfish_avg)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass", x = "recruitment variability")
+dev.off()
+# there is not a strong effect of recruitment variability and 
+# autocorrelation on spawning biomass. The influence between 
+# the two drivers are very similar
+
+#The effect of both rockfish proportion in diet and handling time on spawning biomass
+ggplot(GSA_total_df, aes(x = rockfish.prop, y = rockfish_avg, color = handling)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass", x = "proportion rockfish") +
+  scale_color_continuous(name = "handling")
+
+# the decrease in long term spawning biomass is driven in part by handling and yelloweye rockfish proportion
+
+
+#### Stability #####
+
+# the effect of recruitment variability and autocorrelation on stability
+jpeg(filename = "plots/GSA/CV_cv.x.autocorrR.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = cv, y = rockfish_cv, col = autocorr_R)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "stability", x = "recruitment variability") +
+  scale_color_continuous(name = "autocorr")
+dev.off()
+# Increases in recruitment variability and autocorrelation reduce stability
+
+jpeg(filename = "plots/GSA/CV_autocorrR.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = autocorr_R, y = rockfish_cv)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "stability", x = "recruitment autocorrelation")
+dev.off()
+
+
+#### Age structure ####
+
+# the effect of recruitment variability and autocorrelation on age-structure
+jpeg(filename = "plots/GSA/AGE_cv.x.autocorrR.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = cv, y = rockfish_age, col = autocorr_R)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "Proportion in plus group", x = "recruitment variability") +
+  scale_color_continuous(name = "autocorr")
+dev.off()
+# Increases in recruitment variability and autocorrelation increase proportion 
+# of individuals in plus group, but the effect is small
+
+jpeg(filename = "plots/GSA/AGE_autocorrR.jpeg", units="in", width=5, height=4, res = 300)
+ggplot(GSA_total_df, aes(x = autocorr_R, y = rockfish_age)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "Proportion in plus group", x = "recruitment autocorrelation")
+dev.off()
