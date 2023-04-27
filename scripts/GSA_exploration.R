@@ -174,7 +174,7 @@ annotate_figure(figure, left = textGrob("parameter", rot = 90, vjust = 1, gp = g
 dev.off()
 
 
-# Parameter influence ------------------------------------
+# Important Parameter influence ------------------------------------
 
 #### Spawning Biomass ####
 
@@ -226,7 +226,7 @@ jpeg(filename = "plots/GSA/CV_cv.x.autocorrR.jpeg", units="in", width=5, height=
 ggplot(GSA_total_df, aes(x = cv, y = rockfish_cv, col = autocorr_R)) +
   geom_point() +
   theme_classic() +
-  labs(y = "stability", x = "recruitment variability") +
+  labs(y = "spawning biomass cv", x = "recruitment variability") +
   scale_color_continuous(name = "autocorr")
 dev.off()
 # Increases in recruitment variability and autocorrelation reduce stability
@@ -235,7 +235,7 @@ jpeg(filename = "plots/GSA/CV_autocorrR.jpeg", units="in", width=5, height=4, re
 ggplot(GSA_total_df, aes(x = autocorr_R, y = rockfish_cv)) +
   geom_point() +
   theme_classic() +
-  labs(y = "stability", x = "recruitment autocorrelation")
+  labs(y = "spawning biomass cv", x = "recruitment autocorrelation")
 dev.off()
 
 
@@ -258,3 +258,44 @@ ggplot(GSA_total_df, aes(x = autocorr_R, y = rockfish_age)) +
   theme_classic() +
   labs(y = "Proportion in plus group", x = "recruitment autocorrelation")
 dev.off()
+
+# Other Parameter influence -----------------------------------------------
+
+#### Spawning Biomass ####
+ggplot(GSA_total_df, aes(x = corr, y = rockfish_avg)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass", x = "recruitment correlation")
+
+ggplot(GSA_total_df, aes(x = autocorr_L, y = rockfish_avg)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass", x = "lingcod autocorrelation")
+
+ggplot(GSA_total_df, aes(x = quant95, y = rockfish_avg)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass", x = "size-selectivity")
+
+#### Stability ####
+ggplot(GSA_total_df, aes(x = corr, y = rockfish_cv)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass cv", x = "recruitment correlation")
+
+ggplot(GSA_total_df, aes(x = autocorr_L, y = rockfish_cv)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass cv", x = "lingcod autocorrelation")
+
+ggplot(GSA_total_df, aes(x = quant95, y = rockfish_cv)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass cv", x = "size-selectivity")
+
+ggplot(GSA_total_df, aes(x = handling, y = rockfish_cv)) +
+  geom_point() +
+  theme_classic() +
+  labs(y = "spawning biomass cv", x = "handling time")
+
+#### Age-structure ####
