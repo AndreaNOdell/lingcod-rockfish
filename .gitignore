@@ -12,3 +12,4 @@ cleaned_data/
 /graveyard
 /writing
 markdowns/
+*.DS_Store
