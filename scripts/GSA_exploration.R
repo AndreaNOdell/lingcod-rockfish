@@ -105,7 +105,7 @@ age_GSA %>% ggplot(aes(Parameter, Importance)) + geom_col() + theme_bw() +
   labs(subtitle  = "Long-term Age-structure")
 dev.off()
 
-### Lineplots of normalized %IncMSE
+### Lineplots of normalized %IncMSE (normalized by the standard deviation of the difference)
 
 ImpData <- as.data.frame(importance(RF_age))
 ImpData$Var.Names <- row.names(ImpData)
@@ -160,10 +160,10 @@ cv_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
     axis.ticks.y = element_blank(),
     plot.title = element_text(size=10)
   ) +
-  labs(title = "Stability")
+  labs(title = "Variability")
 
 
-jpeg(filename = "plots/GSA/importance_lineplots_aggregated.jpeg", units="in", width=4, height=8, res = 300)
+jpeg(filename = "plots/GSA/importance/importance_lineplots_aggregated.jpeg", units="in", width=4, height=8, res = 300)
 figure = ggarrange(avg_lineplot + rremove("ylab") + rremove("xlab"), 
                    cv_lineplot + rremove("ylab") + rremove("xlab"),
                    age_lineplot + rremove("ylab") + rremove("xlab"), 

@@ -12,8 +12,8 @@ predprey_int = function(t, n, parms) {
   parms$bycatch <- parms$bycatch[,parms$time]
   with(as.list(parms), { # extract parameters from parms vector
     dn = rep(0, length(n)) # initialize dn/dt vector
-    dn = -(M + bycatch*selectivity*c(rep((fish.mort*sum(n[c(5:20,25:40)]))/sum(lingcod_harvest*n[1:40]), 40), rep(fish.mort,rockfish$nage))) * n - c(rep(0, 40), rowSums(t(t((-log(1 - (consump_yelloweye_n / n[41:105])) * n[41:105]) %*% diag(n[1:40])) / (1 + handling * colSums(-log(1 - (consump_yelloweye_n / n[41:105])) * n[41:105]) + handling*otherprey_n)))) # continuous dynamics
-    dc = rowSums(t(t((-log(1 - (consump_yelloweye_n / n[41:105])) * n[41:105]) %*% diag(n[1:40])) / (1 + handling * colSums(-log(1 - (consump_yelloweye_n / n[41:105])) * n[41:105]) + handling*otherprey_n))) * rockfish$weight.at.age  # calculate predation in biomass
+    dn = -(M + bycatch*selectivity*c(rep((fish.mort*sum(n[c(5:20,25:40)]))/sum(lingcod_harvest*n[1:40]), 40), rep(fish.mort,rockfish$nage))) * n - c(rep(0, 40), rowSums(t(t((-log(1 - pmin((consump_yelloweye_n / n[41:105]), 0.99999)) * n[41:105]) %*% diag(n[1:40])) / (1 + handling * colSums(-log(1 - pmin((consump_yelloweye_n / n[41:105]), 0.99999)) * n[41:105]) + handling*otherprey_n)))) # continuous dynamics
+    dc = rowSums(t(t((-log(1 - pmin((consump_yelloweye_n / n[41:105]), 0.99999)) * n[41:105]) %*% diag(n[1:40])) / (1 + handling * colSums(-log(1 - pmin((consump_yelloweye_n / n[41:105]), 0.99999)) * n[41:105]) + handling*otherprey_n))) * rockfish$weight.at.age  # calculate predation in biomass
     df = sum(bycatch[1:40]*selectivity[1:40]*rep((fish.mort*sum(n[c(5:20,25:40)]))/sum(lingcod_harvest*n[1:40]), 40) * n[1:40]) # calculate fishery yield in number
     dfb = sum((bycatch[1:40]*selectivity[1:40]*rep((fish.mort*sum(n[c(5:20,25:40)]))/sum(lingcod_harvest*n[1:40]), 40)) * (n[1:40]*weight[1:40])) # calculate fishery yield in biomass
     return(list(dn, dc, df, dfb)) # return dn/dt and df/dt as a list
@@ -76,7 +76,7 @@ get_pop_stoch = function(rockfish, lingcod, nsim = 1000, corr, autocorr_L = 0.23
   # Convert kg (biomass) to number (abundance)
   consump_yelloweye_n = sweep(consump_yelloweye_kg, MARGIN = 1, FUN = "/", STATS = rockfish$weight.at.age)
   
-  otherprey_n = sum(consump_yelloweye_n) / (yelloweye.prop*rockfish.prop)
+  otherprey_n = (sum(consump_tot_kg) - sum(consump_yelloweye_kg))/mean(rockfish$weight.at.age)
   
   parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, lingcod_harvest = lingcod_harvest, selectivity = selectivity, handling = handling, consump_yelloweye_n = consump_yelloweye_n, weight = weight.at.age, otherprey_n = otherprey_n)
   id = 1:tf
@@ -133,9 +133,9 @@ get_pop_stoch = function(rockfish, lingcod, nsim = 1000, corr, autocorr_L = 0.23
   }
   
   # Calculate cv of spawning biomass timeseries for each simulation and take the mean of cv (i.e average cv across simulation)
-  rockfish_avg = mean(apply(rockfish_biomass_ts[,-(1:150)], 1, mean))
-  rockfish_cv = mean(apply(rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100))
-  rockfish_age = mean(apply(rockfish_age_str_ts[,-(1:150)], 1, mean))
+  rockfish_avg = mean(na.omit(apply(rockfish_biomass_ts[,-(1:150)]), 1, mean))
+  rockfish_cv = mean(na.omit(apply(rockfish_biomass_ts[,-(1:150)]), 1, function(x) sd(x) / mean(x) * 100))
+  rockfish_age = mean(na.omit(apply(rockfish_age_str_ts[,-(1:150)]), 1, mean))
 
   # Send output to global environment
   output = list(rockfish_cv, rockfish_avg, rockfish_age, rockfish_age_str_ts)
@@ -158,6 +158,7 @@ get_pop_ts = function(rockfish, lingcod, nsim = 100, corr = 0, autocorr_L = 0.23
                                   simulation=NULL))
   rockfish_biomass_ts = matrix(NA, nrow = nsim, ncol = tf)
   rockfish_age_str_ts = matrix(NA, nrow = nsim, ncol = tf)
+  lingcod_biomass_ts = matrix(NA, nrow = nsim, ncol = tf)
   early_recruit = numeric(nsim) # empty vector
   
   # Create weight and maturity at age vectors
@@ -257,16 +258,22 @@ get_pop_ts = function(rockfish, lingcod, nsim = 100, corr = 0, autocorr_L = 0.23
     # Collecting and saving the necessary information
     rockfish_biomass_ts[i,] = colSums(nmat_sims[with(lingcod, (2*nage+1)):nrow(nmat_sims),,i]*rockfish$weight.at.age * rockfish$mat.at.age) # spawning biomass
     rockfish_age_str_ts[i,] = nmat_sims[nrow(nmat_sims),,i] / colSums(nmat_sims[with(lingcod, (2*nage+1)):nrow(nmat_sims),,i])
-   }
+    lingcod_biomass_ts[i,] = colSums(nmat_sims[1:with(lingcod, (2*nage)),,i]*lingcod$weight.at.age) # spawning biomass
+    }
+  
+  # Replace NAs with 0s in the rockfish biomass timeseries
+  rockfish_biomass_ts[is.na(rockfish_biomass_ts)] <- 0
+  rockfish_age_str_ts[is.na(rockfish_age_str_ts)] <- 0
   
   # Calculate cv of spawning biomass timeseries for each simulation and take the mean of cv (i.e average cv across simulation)
   rockfish_avg = mean(apply(rockfish_biomass_ts[,-(1:150)], 1, mean))
-  rockfish_cv = mean(apply(rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100))
+  rockfish_cv = mean(apply(rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100) %>% 
+                       replace(is.na(.), 0))
   rockfish_age = mean(apply(rockfish_age_str_ts[,-(1:150)], 1, mean))
   
   # Send output to global environment
-  output = list(rockfish_biomass_ts[,6:tf], rockfish_cv, rockfish_avg, rockfish_age, early_recruit)
-  names(output) = c("rockfish_biomass_ts", "rockfish_cv", "rockfish_avg", "rockfish_age", "early_recruit")
+  output = list(rockfish_biomass_ts[,6:tf], lingcod_biomass_ts[,6:tf], rockfish_cv, rockfish_avg, rockfish_age, early_recruit)
+  names(output) = c("rockfish_biomass_ts", "lingcod_biomass_ts", "rockfish_cv", "rockfish_avg", "rockfish_age", "early_recruit")
   return(output) # sends as list
 }
 
