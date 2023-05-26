@@ -76,7 +76,7 @@ get_pop_stoch = function(rockfish, lingcod, nsim = 1000, corr, autocorr_L = 0.23
   # Convert kg (biomass) to number (abundance)
   consump_yelloweye_n = sweep(consump_yelloweye_kg, MARGIN = 1, FUN = "/", STATS = rockfish$weight.at.age)
   
-  otherprey_n = (sum(consump_tot_kg) - sum(consump_yelloweye_kg))/mean(rockfish$weight.at.age)
+  otherprey_n = sum(consump_yelloweye_n) / (yelloweye.prop*rockfish.prop)
   
   parms = list(fish.mort = fish.mort, M = M, bycatch = bycatch, lingcod_harvest = lingcod_harvest, selectivity = selectivity, handling = handling, consump_yelloweye_n = consump_yelloweye_n, weight = weight.at.age, otherprey_n = otherprey_n)
   id = 1:tf
