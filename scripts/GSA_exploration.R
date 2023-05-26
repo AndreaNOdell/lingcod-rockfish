@@ -5,7 +5,8 @@ library(rpart.plot)
 library(caret)
 library(plotrix)
 library(ggpubr)
-require(grid) 
+require(grid)
+library(patchwork)
 
 load("GSA_results_final/GSA_total_df.Rdata")
 load("GSA_results_final/RF_SBeq_total_data.Rdata")
@@ -33,7 +34,7 @@ cv_age = (sd(RF_age_total_data[,1])/mean(RF_age_total_data[,1]))*100
 age_hist = ggplot(GSA_total_df, aes(rockfish_age)) +
   geom_histogram(bins = 20, fill = "gray24", col = "white") +
   theme_classic() +
-  labs(title = "Age-Structure", subtitle = paste("cv =", round(cv_age, 3)), x = "Avg of Spawning Biomass")
+  labs(title = "Age-Structure", subtitle = paste("cv =", round(cv_age, 3)), x = "Proportion in Plus Group")
 
 jpeg(filename = "plots/GSA/outcome_histograms.jpeg", units="in", width=8, height=4, res = 300)
 figure = ggarrange(avg_hist + rremove("ylab"), cv_hist + rremove("ylab"), age_hist + rremove("ylab"), ncol = 3)
@@ -109,10 +110,31 @@ dev.off()
 
 ImpData <- as.data.frame(importance(RF_age))
 ImpData$Var.Names <- row.names(ImpData)
+ImpData = ImpData %>% 
+  mutate(Var.Names = fct_relevel(Var.Names,
+                                 "corr",
+                                 "autocorr_L",
+                                 "autocorr_R",
+                                 "cv" ,
+                                 "quant95",
+                                 "handling",
+                                 "rockfish.prop",
+                                 "yelloweye.prop")) 
 
-age_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
-  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
-  ylim(-4, 400) +
+age_lineplot = 
+  ImpData %>% 
+  mutate(Var.Names = recode(Var.Names,
+                            corr = "Correlation",
+                            handling = "Handling Time",
+                            autocorr_L = "Autocorrelation (Lingcod)",
+                            autocorr_R = "Autocorrelation (Yelloweye)",
+                            cv = "Recruitment Variability",
+                            quant95 = "Selectivity Slope",
+                            rockfish.prop = "Rockfish in Diet",
+                            yelloweye.prop = "Yelloweye Proportion")) %>% 
+  ggplot(aes(x=Var.Names, y=log(1.01+`%IncMSE`))) +
+  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=log(1.01+`%IncMSE`)), color="skyblue") +
+  ylim(0,6) +
   geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
   theme_light() +
   coord_flip() +
@@ -121,16 +143,38 @@ age_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
     panel.grid.major.y = element_blank(),
     panel.border = element_blank(),
     axis.ticks.y = element_blank(),
-    plot.title = element_text(size=10)
+    plot.title = element_text(size=10),
+    axis.title.y = element_blank()
   ) +
   labs(title = "Age-Structure")
 
 ImpData <- as.data.frame(importance(RF_avg))
 ImpData$Var.Names <- row.names(ImpData)
+ImpData = ImpData %>% 
+  mutate(Var.Names = fct_relevel(Var.Names,
+                                 "corr",
+                                 "autocorr_L",
+                                 "autocorr_R",
+                                 "cv" ,
+                                 "quant95",
+                                 "handling",
+                                 "rockfish.prop",
+                                 "yelloweye.prop"))
 
-avg_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
-  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
-  ylim(-4, 400) +
+avg_lineplot = 
+  ImpData %>% 
+  mutate(Var.Names = recode(Var.Names,
+                            corr = "Correlation",
+                            handling = "Handling Time",
+                            autocorr_L = "Autocorrelation (Lingcod)",
+                            autocorr_R = "Autocorrelation (Yelloweye)",
+                            cv = "Recruitment Variability",
+                            quant95 = "Selectivity Slope",
+                            rockfish.prop = "Rockfish in Diet",
+                            yelloweye.prop = "Yelloweye Proportion")) %>%
+  ggplot(aes(x=Var.Names, y=log(1.01+`%IncMSE`))) +
+  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=log(1.01+`%IncMSE`)), color="skyblue") +
+  ylim(0,6) +
   geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
   theme_light() +
   coord_flip() +
@@ -146,10 +190,31 @@ avg_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
 
 ImpData <- as.data.frame(importance(RF_cv))
 ImpData$Var.Names <- row.names(ImpData)
+ImpData = ImpData %>% 
+  mutate(Var.Names = fct_relevel(Var.Names,
+                          "corr",
+                          "autocorr_L",
+                          "autocorr_R",
+                          "cv" ,
+                          "quant95",
+                          "handling",
+                          "rockfish.prop",
+                          "yelloweye.prop")) 
 
-cv_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
-  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
-  ylim(-4, 400) +
+cv_lineplot = 
+  ImpData %>% 
+  mutate(Var.Names = recode(Var.Names,
+                            corr = "Correlation",
+                            handling = "Handling Time",
+                            autocorr_L = "Autocorrelation (Lingcod)",
+                            autocorr_R = "Autocorrelation (Yelloweye)",
+                            cv = "Recruitment Variability",
+                            quant95 = "Selectivity Slope",
+                            rockfish.prop = "Rockfish in Diet",
+                            yelloweye.prop = "Yelloweye Proportion")) %>%
+  ggplot(aes(x=Var.Names, y=log(1.01+`%IncMSE`))) +
+  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=log(1.01+`%IncMSE`)), color="skyblue") +
+  ylim(0,6) +
   geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
   theme_light() +
   coord_flip() +
@@ -160,19 +225,41 @@ cv_lineplot = ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
     axis.ticks.y = element_blank(),
     plot.title = element_text(size=10)
   ) +
-  labs(title = "Variability")
+  labs(title = "Variability", y = "% Increase MSE (log-scale)") 
 
 
-jpeg(filename = "plots/GSA/importance/importance_lineplots_aggregated.jpeg", units="in", width=4, height=8, res = 300)
+jpeg(filename = "plots/GSA/importance/importance_lineplots_aggregated.jpeg", units="in", width=5, height=8, res = 300)
 figure = ggarrange(avg_lineplot + rremove("ylab") + rremove("xlab"), 
-                   cv_lineplot + rremove("ylab") + rremove("xlab"),
-                   age_lineplot + rremove("ylab") + rremove("xlab"), 
-                   ncol = 1, 
+                   cv_lineplot + rremove("ylab") + rremove("xlab") + rremove("y.text"),
+                   age_lineplot + rremove("ylab") + rremove("xlab") + rremove("y.text"), 
+                   ncol = 3, 
                    common.legend = TRUE, legend = "right")
 annotate_figure(figure, left = textGrob("parameter", rot = 90, vjust = 1, gp = gpar(cex = 0.9)),
                 bottom = textGrob("%IncMSE", gp = gpar(cex = 0.9)))
 dev.off()
 
+patchwork = avg_lineplot + cv_lineplot + age_lineplot 
+# Remove title from second subplot
+patchwork[[1]] = patchwork[[1]] + theme( legend.position="none",
+                                         axis.title.x = element_blank(),
+                                         axis.title.y = element_blank())
+patchwork[[2]] = patchwork[[2]] + theme(axis.text.y = element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        axis.title.y = element_blank(),
+                                        legend.position="none")
+
+# Remove title from third subplot
+patchwork[[3]] = patchwork[[3]] + theme(axis.text.y = element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        axis.title.y = element_blank(),
+                                        axis.title.x = element_blank(),
+                                        legend.position="none")
+
+patchwork + plot_layout(guides = "collect")
+
+jpeg(filename = "plots/GSA/importance/importance_lineplots_aggregated.jpeg", units="in", width=8.5, height=3.5, res = 300)
+patchwork
+dev.off()
 
 # Important Parameter influence ------------------------------------
 
