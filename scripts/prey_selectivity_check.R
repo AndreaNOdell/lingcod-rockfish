@@ -52,9 +52,9 @@ load(file = "results/prey_selectivity/xtra_high_prey.RData")
 prey_selectivity_df = as.data.frame(cbind("spawning biomass" = c(no_prey$rockfish_avg/no_prey$rockfish_avg, low_prey$rockfish_avg/no_prey$rockfish_avg, high_prey$rockfish_avg/no_prey$rockfish_avg, xtra_high_prey$rockfish_avg/no_prey$rockfish_avg),
                         "variability" = c(no_prey$rockfish_cv/no_prey$rockfish_cv, low_prey$rockfish_cv/no_prey$rockfish_cv, high_prey$rockfish_cv/no_prey$rockfish_cv, xtra_high_prey$rockfish_cv/no_prey$rockfish_cv),
                         "age-structure" = c(no_prey$rockfish_age/no_prey$rockfish_age, low_prey$rockfish_age/no_prey$rockfish_age, high_prey$rockfish_age/no_prey$rockfish_age, xtra_high_prey$rockfish_age/no_prey$rockfish_age))) %>% 
-  mutate(selectivity = c("no", "low", "high", "extra high")) %>% 
+  mutate(selectivity = c("no", "base", "high", "extreme")) %>% 
   pivot_longer(cols = c("spawning biomass", "variability", "age-structure"), names_to = "outcome", values_to = "value") %>%
-  mutate(selectivity = fct_relevel(selectivity, c("no", "low", "high", "extra high"))) %>% 
+  mutate(selectivity = fct_relevel(selectivity, c("no", "base", "high", "extreme"))) %>% 
   mutate(outcome = fct_relevel(outcome, c("spawning biomass", "variability", "age-structure")))
 
 
@@ -62,24 +62,52 @@ jpeg("plots/prey_selectivity/prey_selectivity_on_dynamics.jpeg", units="in", wid
 prey_selectivity_df %>% 
 ggplot(aes(x = selectivity, y = value, col = selectivity)) +
   theme_classic() +
-  geom_point( size = 2.25, position = position_dodge(0.7)) +
+  geom_point( size = 3) +
   facet_wrap( ~ outcome, strip.position = "bottom", scales = "free_x") +
   theme(axis.text.x=element_text(angle=45,hjust=1),
         panel.background = element_rect(fill = "gray90",
                                         colour = "gray90",
-                                        size = 0.5, linewidth = "solid")) +
+                                        size = 0.5, linewidth = "solid"),
+        legend.position = "none") +
+  lims(y = c(0.2,3.8)) +
   geom_hline(yintercept = 1, linetype = 2, color = "grey44") +
-  labs(title = "Effect of Prey Selectivity on Dynamics") +
-  scale_color_manual(values=c("dodgerblue", "blue", "blue4", "navyblue"), breaks=c('no', 'low', 'high', 'extra high'), name = "Prey Selectivity")
+  #scale_colour_manual(values = RColorBrewer::brewer.pal(9, "Purples")[c(5,6,7,9)]) +
+  labs(title = "Effect of Prey Selectivity on Dynamics", x = "Prey selectivity", y = "Relative Change") # +
+  #scale_color_manual(values=c("dodgerblue", "blue", "blue4", "navyblue"), breaks=c('no', 'base', 'high', 'extra high'), name = "Prey Selectivity")
 dev.off()
 
 # look to see if high prey selectivity effect on variability is due 
 # to high cv of lingcod
+rockfish_avg_sims_xtrahigh = apply(xtra_high_prey$rockfish_biomass_ts[,-(1:150)], 1, mean)
+lingcod_avg_sims_xtrahigh = apply(xtra_high_prey$lingcod_biomass_ts[,-(1:150)], 1, mean)
 
+cv_sims = cbind(rockfish = c(apply(no_prey$rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100),
+                           apply(low_prey$rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100),
+                           apply(high_prey$rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100),
+                           apply(xtra_high_prey$rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100)),
+                lingcod = c(apply(no_prey$lingcod_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100),
+                             apply(low_prey$lingcod_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100),
+                             apply(high_prey$lingcod_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100),
+                             apply(xtra_high_prey$lingcod_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100)),
+                        selectivity = c(rep("none", 150),rep("base", 150),rep("high", 150),rep("extra high", 150)))
+cv_sims = as.data.frame(cv_sims)
+cv_sims$rockfish = as.numeric(cv_sims$rockfish); cv_sims$lingcod = as.numeric(cv_sims$lingcod)
+cv_sims$selectivity <- factor(cv_sims$selectivity , levels = c("none", "base", "high", "extra high"))
 
+jpeg("plots/prey_selectivity/rockVSling_CV_preyselectivity.jpeg", units="in", width=6, height=4, res = 300)
+cv_sims %>% 
+ggplot(aes(x = lingcod, y = rockfish, col = selectivity)) +
+  geom_jitter(alpha = 0.6, size = 2.2, width = 0.1, height = 0.1) +
+  theme_classic() +
+  labs(y = "rockfish CV", x = "lingcod CV", color = "Prey Selectivity") 
+dev.off()
 
+rockfish_avg_sims_low = apply(low_prey$rockfish_biomass_ts[,-(1:150)], 1, mean)
+lingcod_avg_sims_low = apply(low_prey$lingcod_biomass_ts[,-(1:150)], 1, mean)
+rockfish_cv_sims_low = apply(low_prey$rockfish_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100)
+lingcod_cv_sims_low = apply(low_prey$lingcod_biomass_ts[,-(1:150)], 1, function(x) sd(x) / mean(x) * 100)
 
-
+plot(lingcod_cv_sims_low, rockfish_cv_sims_low)
 
 # FIXED - Collapsed pops ----------
 example_ts = as.data.frame(rbind(high_prey$rockfish_biomass_ts[high_prey$rockfish_biomass_ts[,350] == 0,], 
